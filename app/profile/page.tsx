@@ -1,18 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../lib/supabase/client";
 
-type BookData = {
-  series: string | null;
+type Profile = {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  created_at: string | null;
 };
 
-type UserBookData = {
-  status: string;
-  rating: number | null;
-  books: BookData | BookData[] | null;
+type Friendship = {
+  id: number;
+  user_id: string;
+  friend_id: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED";
+  created_at: string | null;
+  profile?: Profile | null;
 };
 
 type Stats = {
@@ -21,585 +26,872 @@ type Stats = {
   reading: number;
   toRead: number;
   abandoned: number;
-};
-
-type AdvancedStats = {
   series: number;
+  tomes: number;
   averageRating: number;
 };
 
 export default function ProfilePage() {
-  const router = useRouter();
   const supabase = createClient();
 
-  const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [editedUsername, setEditedUsername] = useState("");
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  const [editing, setEditing] = useState(false);
-
-  const [message, setMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [stats, setStats] = useState<Stats>({
     total: 0,
     read: 0,
     reading: 0,
     toRead: 0,
     abandoned: 0,
+    series: 0,
+    tomes: 0,
+    averageRating: 0,
   });
 
-  const [advancedStats, setAdvancedStats] =
-    useState<AdvancedStats>({
-      series: 0,
-      averageRating: 0,
-    });
+  const [newUsername, setNewUsername] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  // Social
+  const [searchUsername, setSearchUsername] = useState("");
+  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const [friendships, setFriendships] = useState<Friendship[]>([]);
+  const [loadingFriendships, setLoadingFriendships] = useState(false);
+
+  const [sendingRequest, setSendingRequest] = useState<string | null>(null);
+  const [processingRequest, setProcessingRequest] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
-    async function loadProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    loadProfile();
+  }, []);
 
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
+  async function loadProfile() {
+    setError("");
 
-      const currentUsername =
-        user.user_metadata?.username ||
-        user.user_metadata?.name ||
-        "";
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      setEmail(user.email || "");
-      setUsername(currentUsername);
-      setEditedUsername(currentUsername);
-
-      const { data, error } = await supabase
-        .from("user_books")
-        .select(`
-          status,
-          rating,
-          books (
-            series
-          )
-        `)
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error(
-          "Erreur chargement statistiques profil :",
-          error
-        );
-      } else {
-        const books =
-          (data as unknown as UserBookData[]) || [];
-
-        const read = books.filter(
-          (book) => book.status === "READ"
-        );
-
-        const reading = books.filter(
-          (book) => book.status === "READING"
-        );
-
-        const toRead = books.filter(
-          (book) => book.status === "TO_READ"
-        );
-
-        const abandoned = books.filter(
-          (book) => book.status === "ABANDONED"
-        );
-
-        setStats({
-          total: books.length,
-          read: read.length,
-          reading: reading.length,
-          toRead: toRead.length,
-          abandoned: abandoned.length,
-        });
-
-        /*
-         * Nombre de séries différentes.
-         *
-         * On normalise les noms pour éviter que
-         * "One Piece" et "ONE PIECE" soient comptés
-         * comme deux séries différentes.
-         */
-        const series = new Set(
-          books
-            .map((book) => {
-              const bookData = Array.isArray(
-                book.books
-              )
-                ? book.books[0]
-                : book.books;
-
-              return bookData?.series
-                ?.trim()
-                .toLowerCase();
-            })
-            .filter(Boolean)
-        );
-
-        /*
-         * Note moyenne uniquement sur les livres
-         * ayant effectivement une note.
-         */
-        const ratedBooks = books.filter(
-          (book) =>
-            typeof book.rating === "number" &&
-            book.rating > 0
-        );
-
-        const averageRating =
-          ratedBooks.length > 0
-            ? ratedBooks.reduce(
-                (total, book) =>
-                  total + (book.rating || 0),
-                0
-              ) / ratedBooks.length
-            : 0;
-
-        setAdvancedStats({
-          series: series.size,
-          averageRating:
-            Math.round(averageRating * 10) / 10,
-        });
-      }
-
-      setLoading(false);
+    if (!user) {
+      window.location.href = "/login";
+      return;
     }
 
-    loadProfile();
-  }, [router]);
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url, created_at")
+      .eq("id", user.id)
+      .single();
 
-  async function handleSaveProfile() {
-    const newUsername =
-      editedUsername.trim();
+    if (profileError) {
+      console.error(profileError);
+      setError("Impossible de charger le profil.");
+      return;
+    }
 
-    if (!newUsername) {
-      setErrorMessage(
-        "Le pseudo ne peut pas être vide."
-      );
-      setMessage("");
+    setProfile(profileData);
+    setNewUsername(profileData.username);
+
+    await loadStats(user.id);
+    await loadFriendships(user.id);
+  }
+
+  async function loadStats(userId: string) {
+    const { data, error } = await supabase
+      .from("user_books")
+      .select(`
+        status,
+        rating,
+        books (
+          id,
+          series,
+          series_number
+        )
+      `)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const books = data ?? [];
+
+    const total = books.length;
+
+    const read = books.filter((book) => book.status === "READ").length;
+
+    const reading = books.filter(
+      (book) => book.status === "READING"
+    ).length;
+
+    const toRead = books.filter(
+      (book) => book.status === "TO_READ"
+    ).length;
+
+    const abandoned = books.filter(
+      (book) => book.status === "ABANDONED"
+    ).length;
+
+    const seriesNames = new Set<string>();
+
+    books.forEach((book) => {
+      const bookData = Array.isArray(book.books)
+        ? book.books[0]
+        : book.books;
+
+      if (bookData?.series) {
+        seriesNames.add(bookData.series.trim().toLowerCase());
+      }
+    });
+
+    const tomes = books.filter((book) => {
+      const bookData = Array.isArray(book.books)
+        ? book.books[0]
+        : book.books;
+
+      return bookData?.series_number != null;
+    }).length;
+
+    const ratings = books
+      .map((book) => book.rating)
+      .filter((rating): rating is number => rating != null);
+
+    const averageRating =
+      ratings.length > 0
+        ? ratings.reduce((sum, rating) => sum + rating, 0) /
+          ratings.length
+        : 0;
+
+    setStats({
+      total,
+      read,
+      reading,
+      toRead,
+      abandoned,
+      series: seriesNames.size,
+      tomes,
+      averageRating,
+    });
+  }
+
+  async function loadFriendships(userId: string) {
+    setLoadingFriendships(true);
+
+    const { data, error } = await supabase
+      .from("friendships")
+      .select(`
+        id,
+        user_id,
+        friend_id,
+        status,
+        created_at
+      `)
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      setLoadingFriendships(false);
+      return;
+    }
+
+    const friendshipRows = data ?? [];
+
+    const otherUserIds = friendshipRows.map((friendship) =>
+      friendship.user_id === userId
+        ? friendship.friend_id
+        : friendship.user_id
+    );
+
+    let profilesMap = new Map<string, Profile>();
+
+    if (otherUserIds.length > 0) {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url, created_at")
+        .in("id", otherUserIds);
+
+      if (profilesError) {
+        console.error(profilesError);
+      } else {
+        profilesMap = new Map(
+          (profilesData ?? []).map((item) => [item.id, item])
+        );
+      }
+    }
+
+    const enrichedFriendships: Friendship[] = friendshipRows.map(
+      (friendship) => {
+        const otherUserId =
+          friendship.user_id === userId
+            ? friendship.friend_id
+            : friendship.user_id;
+
+        return {
+          ...friendship,
+          profile: profilesMap.get(otherUserId) ?? null,
+        };
+      }
+    );
+
+    setFriendships(enrichedFriendships);
+    setLoadingFriendships(false);
+  }
+
+  async function handleSearchUsers() {
+    const query = searchUsername.trim();
+
+    setMessage("");
+    setError("");
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+
+    const { data: userData } = await supabase.auth.getUser();
+    const currentUserId = userData.user?.id;
+
+    if (!currentUserId) {
+      setSearching(false);
+      return;
+    }
+
+    const { data, error: searchError } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url, created_at")
+      .ilike("username", `%${query}%`)
+      .neq("id", currentUserId)
+      .limit(10);
+
+    if (searchError) {
+      console.error(searchError);
+      setError("Impossible de rechercher les utilisateurs.");
+      setSearchResults([]);
+    } else {
+      setSearchResults(data ?? []);
+    }
+
+    setSearching(false);
+  }
+
+  function getRelationshipStatus(userId: string) {
+    const friendship = friendships.find(
+      (item) =>
+        (item.user_id === profile?.id && item.friend_id === userId) ||
+        (item.friend_id === profile?.id && item.user_id === userId)
+    );
+
+    return friendship?.status ?? null;
+  }
+
+  async function sendFriendRequest(friendId: string) {
+    if (!profile) return;
+
+    setSendingRequest(friendId);
+    setMessage("");
+    setError("");
+
+    const existingStatus = getRelationshipStatus(friendId);
+
+    if (existingStatus === "PENDING") {
+      setMessage("Une demande est déjà en attente.");
+      setSendingRequest(null);
+      return;
+    }
+
+    if (existingStatus === "ACCEPTED") {
+      setMessage("Vous êtes déjà amis.");
+      setSendingRequest(null);
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("friendships")
+      .insert({
+        user_id: profile.id,
+        friend_id: friendId,
+        status: "PENDING",
+      });
+
+    if (insertError) {
+      console.error(insertError);
+
+      if (insertError.code === "23505") {
+        setMessage("Une demande existe déjà pour cet utilisateur.");
+      } else {
+        setError("Impossible d'envoyer la demande.");
+      }
+
+      setSendingRequest(null);
+      return;
+    }
+
+    setMessage("Demande d'ami envoyée.");
+
+    await loadFriendships(profile.id);
+
+    setSendingRequest(null);
+  }
+
+  async function handleFriendRequest(
+    friendshipId: number,
+    status: "ACCEPTED" | "DECLINED"
+  ) {
+    if (!profile) return;
+
+    setProcessingRequest(friendshipId);
+    setMessage("");
+    setError("");
+
+    const { error: updateError } = await supabase
+      .from("friendships")
+      .update({ status })
+      .eq("id", friendshipId)
+      .eq("friend_id", profile.id)
+      .eq("status", "PENDING");
+
+    if (updateError) {
+      console.error(updateError);
+      setError("Impossible de mettre à jour la demande.");
+      setProcessingRequest(null);
+      return;
+    }
+
+    setMessage(
+      status === "ACCEPTED"
+        ? "Demande acceptée."
+        : "Demande refusée."
+    );
+
+    await loadFriendships(profile.id);
+
+    setProcessingRequest(null);
+  }
+
+  async function saveUsername() {
+    if (!profile) return;
+
+    const username = newUsername.trim();
+
+    if (!username) {
+      setError("Le pseudo ne peut pas être vide.");
+      return;
+    }
+
+    if (username.length < 2) {
+      setError("Le pseudo doit contenir au moins 2 caractères.");
       return;
     }
 
     setSaving(true);
+    setError("");
     setMessage("");
-    setErrorMessage("");
 
-    const { data, error } =
-      await supabase.auth.updateUser({
-        data: {
-          username: newUsername,
-        },
-      });
+    const { data, error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        username,
+      })
+      .eq("id", profile.id)
+      .select("id, username, avatar_url, created_at")
+      .single();
 
-    if (error) {
-      console.error(
-        "Erreur modification profil :",
-        error
-      );
+    if (updateError) {
+      console.error(updateError);
 
-      setErrorMessage(
-        "Impossible de modifier ton profil."
-      );
+      if (updateError.code === "23505") {
+        setError("Ce pseudo est déjà utilisé.");
+      } else {
+        setError("Impossible de modifier le pseudo.");
+      }
 
       setSaving(false);
       return;
     }
 
-    const updatedUsername =
-      data.user?.user_metadata?.username ||
-      newUsername;
+    setProfile(data);
 
-    setUsername(updatedUsername);
-    setEditedUsername(updatedUsername);
-    setEditing(false);
+    await supabase.auth.updateUser({
+      data: {
+        username: data.username,
+      },
+    });
 
+    setNewUsername(data.username);
+    setIsEditing(false);
     setMessage("Profil mis à jour.");
 
     setSaving(false);
-
-    router.refresh();
   }
 
-  function handleCancelEdit() {
-    setEditedUsername(username);
-    setEditing(false);
+  function cancelEdit() {
+    if (profile) {
+      setNewUsername(profile.username);
+    }
+
+    setIsEditing(false);
+    setError("");
     setMessage("");
-    setErrorMessage("");
   }
 
-  async function handleLogout() {
-    setLoggingOut(true);
-
+  async function logout() {
     await supabase.auth.signOut();
-
-    router.replace("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
-  const displayName =
-    username ||
-    (email
-      ? email.split("@")[0]
-      : "Lecteur");
+  const receivedRequests = friendships.filter(
+    (friendship) =>
+      friendship.friend_id === profile?.id &&
+      friendship.status === "PENDING"
+  );
 
-  const avatarLetter =
-    displayName.charAt(0).toUpperCase() || "?";
+  const sentRequests = friendships.filter(
+    (friendship) =>
+      friendship.user_id === profile?.id &&
+      friendship.status === "PENDING"
+  );
 
-  const globalProgress =
-    stats.total > 0
-      ? Math.round(
-          (stats.read / stats.total) * 100
-        )
-      : 0;
+  const acceptedFriends = friendships.filter(
+    (friendship) => friendship.status === "ACCEPTED"
+  );
 
   return (
-    <main className="min-h-screen bg-[#080B18] px-5 py-8 pb-28 text-white">
-      <div className="mx-auto max-w-3xl">
-
+    <main className="min-h-screen bg-[#faf7f2] px-4 py-8 text-[#31095a]">
+      <div className="mx-auto max-w-5xl">
         {/* HEADER */}
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-pink-400">
-            Biblidex
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <Link
+              href="/"
+              className="text-sm font-semibold text-[#31095a]/70 hover:text-[#31095a]"
+            >
+              ← Retour à l'accueil
+            </Link>
 
-          <h1 className="mt-2 text-4xl font-black">
-            Mon profil
-          </h1>
+            <h1 className="mt-3 text-3xl font-black">
+              Mon profil
+            </h1>
+          </div>
+
+          <button
+            onClick={logout}
+            className="rounded-xl border border-[#31095a]/15 bg-white px-4 py-2 text-sm font-semibold hover:bg-[#31095a]/5"
+          >
+            Déconnexion
+          </button>
         </div>
 
+        {/* MESSAGES */}
+        {message && (
+          <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* PROFIL */}
-        <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-
-            {/* AVATAR */}
-            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-violet-500 text-2xl font-black">
-              {loading ? "?" : avatarLetter}
-            </div>
-
-            {/* INFORMATIONS */}
-            <div className="min-w-0 flex-1">
-
-              {editing ? (
-                <>
-                  <label className="mb-2 block text-sm font-medium text-white/60">
-                    Mon pseudo
-                  </label>
-
-                  <input
-                    type="text"
-                    value={editedUsername}
-                    onChange={(event) =>
-                      setEditedUsername(
-                        event.target.value
-                      )
-                    }
-                    maxLength={30}
-                    autoFocus
-                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 outline-none transition focus:border-pink-400"
+        {profile && (
+          <section className="rounded-3xl bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] text-4xl font-black text-white">
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.username}
+                    className="h-full w-full object-cover"
                   />
+                ) : (
+                  profile.username.charAt(0).toUpperCase()
+                )}
+              </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
+              <div className="flex-1">
+                {isEditing ? (
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      value={newUsername}
+                      onChange={(event) =>
+                        setNewUsername(event.target.value)
+                      }
+                      className="rounded-xl border border-[#31095a]/15 px-4 py-3 outline-none focus:border-[#31095a]"
+                      placeholder="Nouveau pseudo"
+                    />
 
                     <button
-                      type="button"
-                      onClick={
-                        handleSaveProfile
-                      }
+                      onClick={saveUsername}
                       disabled={saving}
-                      className="rounded-xl bg-gradient-to-r from-orange-400 via-pink-500 to-violet-500 px-4 py-2 text-sm font-bold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-xl bg-[#31095a] px-5 py-3 font-bold text-white disabled:opacity-50"
                     >
-                      {saving
-                        ? "Enregistrement..."
-                        : "Enregistrer"}
+                      {saving ? "Enregistrement..." : "Enregistrer"}
                     </button>
 
                     <button
-                      type="button"
-                      onClick={
-                        handleCancelEdit
-                      }
+                      onClick={cancelEdit}
                       disabled={saving}
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
+                      className="rounded-xl border border-[#31095a]/15 px-5 py-3 font-semibold"
                     >
                       Annuler
                     </button>
-
                   </div>
-                </>
-              ) : (
-                <>
-                  <h2 className="truncate text-2xl font-bold">
-                    {loading
-                      ? "Chargement..."
-                      : displayName}
-                  </h2>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h2 className="text-2xl font-black">
+                      {profile.username}
+                    </h2>
 
-                  <p className="mt-1 break-all text-sm text-white/40">
-                    {loading
-                      ? "Chargement..."
-                      : email}
-                  </p>
-
-                  {!loading && (
                     <button
-                      type="button"
                       onClick={() => {
-                        setEditedUsername(
-                          username
-                        );
-
-                        setEditing(true);
+                        setIsEditing(true);
                         setMessage("");
-                        setErrorMessage("");
+                        setError("");
                       }}
-                      className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
+                      className="rounded-lg border border-[#31095a]/15 px-3 py-1.5 text-sm font-semibold hover:bg-[#31095a]/5"
                     >
-                      Modifier mon profil
+                      Modifier
                     </button>
-                  )}
-                </>
-              )}
+                  </div>
+                )}
 
-            </div>
-          </div>
-
-          {/* MESSAGE SUCCÈS */}
-          {message && (
-            <div className="mt-5 rounded-xl border border-green-400/20 bg-green-500/10 px-4 py-3 text-sm text-green-300">
-              {message}
-            </div>
-          )}
-
-          {/* MESSAGE ERREUR */}
-          {errorMessage && (
-            <div className="mt-5 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              {errorMessage}
-            </div>
-          )}
-        </section>
-
-        {/* STATISTIQUES PRINCIPALES */}
-        <section className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              Livres
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {stats.total}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              Lus
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {stats.read}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              En cours
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {stats.reading}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              À lire
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {stats.toRead}
-            </p>
-          </div>
-
-        </section>
-
-        {/* PROGRESSION GLOBALE */}
-        <section className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-6">
-
-          <div className="flex items-center justify-between gap-4">
-
-            <div>
-              <p className="text-sm text-white/40">
-                Progression globale
-              </p>
-
-              <p className="mt-1 text-3xl font-black">
-                {globalProgress}%
-              </p>
-            </div>
-
-            <p className="text-sm text-white/40">
-              {stats.read}/{stats.total} lus
-            </p>
-
-          </div>
-
-          <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-violet-500 transition-all"
-              style={{
-                width: `${globalProgress}%`,
-              }}
-            />
-          </div>
-
-        </section>
-
-        {/* STATISTIQUES COMPLÉMENTAIRES */}
-        <section className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              Séries
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {advancedStats.series}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              Tomes
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {stats.total}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              Note moyenne
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {advancedStats.averageRating > 0
-                ? `${advancedStats.averageRating}/5`
-                : "—"}
-            </p>
-          </div>
-
-        </section>
-
-        {/* LIVRES ABANDONNÉS */}
-        {stats.abandoned > 0 && (
-          <section className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold">
-                  Livres abandonnés
-                </p>
-
-                <p className="mt-1 text-sm text-white/40">
-                  Livres que tu as décidé de ne pas
-                  terminer
+                <p className="mt-2 text-sm text-[#31095a]/60">
+                  Ton profil Biblidex
                 </p>
               </div>
-
-              <span className="text-2xl font-black">
-                {stats.abandoned}
-              </span>
             </div>
           </section>
         )}
 
-        {/* NAVIGATION */}
-        <div className="mt-6 space-y-3">
+        {/* STATS */}
+        <section className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard label="Livres" value={stats.total} />
+          <StatCard label="Lus" value={stats.read} />
+          <StatCard label="En cours" value={stats.reading} />
+          <StatCard label="À lire" value={stats.toRead} />
+          <StatCard label="Séries" value={stats.series} />
+          <StatCard label="Tomes" value={stats.tomes} />
+          <StatCard
+            label="Note moyenne"
+            value={
+              stats.averageRating > 0
+                ? `${stats.averageRating.toFixed(1)}/5`
+                : "—"
+            }
+          />
+          <StatCard label="Abandonnés" value={stats.abandoned} />
+        </section>
 
-          <Link
-            href="/collection"
-            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
-          >
-            <div>
-              <p className="font-semibold">
-                Ma collection
-              </p>
+        {/* RECHERCHE UTILISATEURS */}
+        <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-black">
+            Trouver des lecteurs
+          </h2>
 
-              <p className="mt-1 text-sm text-white/40">
-                Voir tous mes livres
-              </p>
+          <p className="mt-1 text-sm text-[#31095a]/60">
+            Recherche un utilisateur par pseudo.
+          </p>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              value={searchUsername}
+              onChange={(event) => {
+                setSearchUsername(event.target.value);
+
+                if (event.target.value.trim().length < 2) {
+                  setSearchResults([]);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleSearchUsers();
+                }
+              }}
+              placeholder="Ex. MR"
+              className="flex-1 rounded-xl border border-[#31095a]/15 bg-[#faf7f2] px-4 py-3 outline-none focus:border-[#31095a]"
+            />
+
+            <button
+              onClick={handleSearchUsers}
+              disabled={searching}
+              className="rounded-xl bg-[#31095a] px-6 py-3 font-bold text-white disabled:opacity-50"
+            >
+              {searching ? "Recherche..." : "Rechercher"}
+            </button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="mt-5 space-y-3">
+              {searchResults.map((result) => {
+                const relationshipStatus = getRelationshipStatus(
+                  result.id
+                );
+
+                return (
+                  <div
+                    key={result.id}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-[#31095a]/10 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                        {result.avatar_url ? (
+                          <img
+                            src={result.avatar_url}
+                            alt={result.username}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          result.username
+                            .charAt(0)
+                            .toUpperCase()
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="font-bold">
+                          {result.username}
+                        </p>
+                      </div>
+                    </div>
+
+                    {relationshipStatus === "ACCEPTED" ? (
+                      <span className="rounded-xl bg-green-100 px-4 py-2 text-sm font-bold text-green-700">
+                        Ami
+                      </span>
+                    ) : relationshipStatus === "PENDING" ? (
+                      <span className="rounded-xl bg-yellow-100 px-4 py-2 text-sm font-bold text-yellow-700">
+                        Demande en attente
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          sendFriendRequest(result.id)
+                        }
+                        disabled={sendingRequest === result.id}
+                        className="rounded-xl bg-[#31095a] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                      >
+                        {sendingRequest === result.id
+                          ? "Envoi..."
+                          : "Ajouter"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          )}
 
-            <span className="text-xl text-white/40">
-              →
-            </span>
-          </Link>
-
-          <Link
-            href="/add"
-            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
-          >
-            <div>
-              <p className="font-semibold">
-                Ajouter un livre
+          {searchUsername.trim().length >= 2 &&
+            !searching &&
+            searchResults.length === 0 && (
+              <p className="mt-5 text-sm text-[#31095a]/60">
+                Aucun utilisateur trouvé.
               </p>
+            )}
+        </section>
 
-              <p className="mt-1 text-sm text-white/40">
-                Ajouter un nouveau livre à ma
-                collection
-              </p>
+        {/* DEMANDES REÇUES */}
+        <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-black">
+            Demandes d'ami
+          </h2>
+
+          {loadingFriendships ? (
+            <p className="mt-4 text-sm text-[#31095a]/60">
+              Chargement...
+            </p>
+          ) : receivedRequests.length === 0 ? (
+            <p className="mt-4 text-sm text-[#31095a]/60">
+              Aucune demande en attente.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {receivedRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="flex flex-col gap-4 rounded-2xl border border-[#31095a]/10 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                      {request.profile?.avatar_url ? (
+                        <img
+                          src={request.profile.avatar_url}
+                          alt={request.profile.username}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        request.profile?.username
+                          ?.charAt(0)
+                          .toUpperCase() ?? "?"
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="font-bold">
+                        {request.profile?.username ??
+                          "Utilisateur"}
+                      </p>
+
+                      <p className="text-sm text-[#31095a]/60">
+                        souhaite vous ajouter
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        handleFriendRequest(
+                          request.id,
+                          "ACCEPTED"
+                        )
+                      }
+                      disabled={processingRequest === request.id}
+                      className="rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                    >
+                      Accepter
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handleFriendRequest(
+                          request.id,
+                          "DECLINED"
+                        )
+                      }
+                      disabled={processingRequest === request.id}
+                      className="rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-600 disabled:opacity-50"
+                    >
+                      Refuser
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+        </section>
 
-            <span className="text-xl text-white/40">
-              →
-            </span>
-          </Link>
+        {/* AMIS */}
+        <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-black">
+            Mes amis
+          </h2>
 
-          <Link
-            href="/search"
-            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
-          >
-            <div>
-              <p className="font-semibold">
-                Rechercher
-              </p>
+          {acceptedFriends.length === 0 ? (
+            <p className="mt-4 text-sm text-[#31095a]/60">
+              Tu n'as pas encore d'ami sur Biblidex.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {acceptedFriends.map((friendship) => (
+                <div
+                  key={friendship.id}
+                  className="flex items-center gap-3 rounded-2xl border border-[#31095a]/10 p-4"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                    {friendship.profile?.avatar_url ? (
+                      <img
+                        src={friendship.profile.avatar_url}
+                        alt={friendship.profile.username}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      friendship.profile?.username
+                        ?.charAt(0)
+                        .toUpperCase() ?? "?"
+                    )}
+                  </div>
 
-              <p className="mt-1 text-sm text-white/40">
-                Trouver un livre
-              </p>
+                  <div>
+                    <p className="font-bold">
+                      {friendship.profile?.username ??
+                        "Utilisateur"}
+                    </p>
+
+                    <p className="text-sm text-green-600">
+                      Ami
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+        </section>
 
-            <span className="text-xl text-white/40">
-              →
-            </span>
-          </Link>
+        {/* DEMANDES ENVOYÉES */}
+        {sentRequests.length > 0 && (
+          <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-black">
+              Demandes envoyées
+            </h2>
 
-        </div>
+            <div className="mt-4 space-y-3">
+              {sentRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="flex items-center gap-3 rounded-2xl border border-[#31095a]/10 p-4"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                    {request.profile?.avatar_url ? (
+                      <img
+                        src={request.profile.avatar_url}
+                        alt={request.profile.username}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      request.profile?.username
+                        ?.charAt(0)
+                        .toUpperCase() ?? "?"
+                    )}
+                  </div>
 
-        {/* DÉCONNEXION */}
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="mt-8 w-full rounded-2xl border border-red-400/20 bg-red-500/10 p-5 text-left font-semibold text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loggingOut
-            ? "Déconnexion..."
-            : "Se déconnecter"}
-        </button>
+                  <div>
+                    <p className="font-bold">
+                      {request.profile?.username ??
+                        "Utilisateur"}
+                    </p>
 
+                    <p className="text-sm text-yellow-600">
+                      Demande en attente
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </main>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <p className="text-sm font-semibold text-[#31095a]/60">
+        {label}
+      </p>
+
+      <p className="mt-2 text-2xl font-black text-[#31095a]">
+        {value}
+      </p>
+    </div>
   );
 }
