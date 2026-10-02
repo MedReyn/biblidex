@@ -32,7 +32,7 @@ export default function AddBookPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
 
   // =========================================================
- async function searchBooks(queryValue: string) {
+async function searchBooks(queryValue: string) {
   const value = queryValue.trim();
 
   if (!value) return;
@@ -68,20 +68,162 @@ export default function AddBookPage() {
 
       if (openLibraryData.docs?.length > 0) {
         const results: BookResult[] =
-          openLibraryData.docs.map(
-            (book: any) => {
+          openLibraryData.docs
+            .map((book: any) => {
+              // -------------------------------------------------
+              // ISBN
+              // -------------------------------------------------
+
               const isbn =
                 book.isbn?.find(
                   (value: string) =>
-                    /^\d{13}$/.test(value)
+                    /^\d{13}$/.test(
+                      value.replace(/[- ]/g, "")
+                    )
                 ) ||
                 book.isbn?.[0] ||
                 "";
 
+              // -------------------------------------------------
+              // TITRE
+              // -------------------------------------------------
+
+              const title =
+                book.title ||
+                "Titre inconnu";
+
+              // -------------------------------------------------
+              // DÉTECTION DU TOME
+              // -------------------------------------------------
+              //
+              // Exemples :
+              // "ONE PIECE 1"       → 1
+              // "ONE PIECE 14"      → 14
+              // "ONE PIECE Tome 1"  → 1
+              // "One Piece Vol. 12" → 12
+              // "Batman #5"         → 5
+              //
+
+              const volumeMatch = title.match(
+                /(?:tome|tom|volume|vol\.?|#)\s*(\d+)\s*$/i
+              );
+
+              let volumeNumber: number | null =
+                volumeMatch
+                  ? Number(volumeMatch[1])
+                  : null;
+
+              // -------------------------------------------------
+              // FALLBACK :
+              // numéro directement à la fin du titre
+              //
+              // "ONE PIECE 1"  → 1
+              // "ONE PIECE 14" → 14
+              // -------------------------------------------------
+
+              if (volumeNumber === null) {
+                const trailingNumberMatch =
+                  title.match(/\s(\d+)\s*$/);
+
+                if (trailingNumberMatch) {
+                  volumeNumber = Number(
+                    trailingNumberMatch[1]
+                  );
+                }
+              }
+
+              // -------------------------------------------------
+              // DÉTECTION DE LA SÉRIE
+              // -------------------------------------------------
+
+              let series = "";
+
+              // 1. On cherche d'abord une série dans les subjects
+              const seriesSubject =
+                book.subject?.find(
+                  (subject: string) => {
+                    const lower =
+                      subject.toLowerCase();
+
+                    return (
+                      lower.includes("(series)") ||
+                      lower.includes("series")
+                    );
+                  }
+                );
+
+             if (seriesSubject) {
+  series = seriesSubject
+    .replace(/^\s*series\s*:\s*/i, "")
+    .replace(/\s*\(series\)\s*/gi, "")
+    .replace(/\s*series\s*$/i, "")
+    .trim();
+}
+
+              // 2. Si aucune série n'est trouvée,
+              //    on peut la déduire du titre lorsqu'un
+              //    numéro de tome est présent.
+              if (!series && volumeNumber !== null) {
+                series = title
+                  .replace(
+                    /(?:tome|tom|volume|vol\.?|#)\s*\d+\s*$/i,
+                    ""
+                  )
+                  .replace(/\s+\d+\s*$/, "")
+                  .trim();
+              }
+
+              // -------------------------------------------------
+              // TYPE
+              // -------------------------------------------------
+
+              const lowerTitle =
+                title.toLowerCase();
+
+              const lowerSeries =
+                series.toLowerCase();
+
+              let type = "BOOK";
+
+              if (
+                lowerTitle.includes("manga") ||
+                lowerSeries.includes("manga") ||
+                book.subject?.some(
+                  (subject: string) =>
+                    subject
+                      .toLowerCase()
+                      .includes("manga")
+                )
+              ) {
+                type = "MANGA";
+              } else if (
+                lowerTitle.includes("comic") ||
+                lowerSeries.includes("comic") ||
+                book.subject?.some(
+                  (subject: string) =>
+                    subject
+                      .toLowerCase()
+                      .includes("comic")
+                )
+              ) {
+                type = "COMIC";
+              } else if (
+                book.subject?.some(
+                  (subject: string) =>
+                    subject
+                      .toLowerCase()
+                      .includes("graphic novel")
+                )
+              ) {
+                type = "GRAPHIC_NOVEL";
+              }
+
+              // -------------------------------------------------
+              // RÉSULTAT
+              // -------------------------------------------------
+
               return {
-                title:
-                  book.title ||
-                  "Titre inconnu",
+                title,
 
                 author:
                   book.author_name?.join(", ") ||
@@ -108,15 +250,22 @@ export default function AddBookPage() {
 
                 language: "",
 
-                type: "BOOK",
+                type,
 
-                volumeNumber: null,
+                volumeNumber,
+
+                series,
               };
-            }
-          );
+            })
+            .filter(
+              (book: BookResult) =>
+                book.isbn
+            );
 
-        setResults(results);
-        return;
+        if (results.length > 0) {
+          setResults(results);
+          return;
+        }
       }
     }
 
@@ -124,42 +273,85 @@ export default function AddBookPage() {
     // 2. BNF
     // =========================================================
 
-    
     const bnfResponse = await fetch(
-  `/api/bnf?q=${encodeURIComponent(value)}`
-);
+      `/api/bnf?q=${encodeURIComponent(value)}`
+    );
 
-if (!bnfResponse.ok) {
-  throw new Error(
-    "Erreur lors de la recherche BnF."
-  );
-}
+    if (!bnfResponse.ok) {
+      throw new Error(
+        "Erreur lors de la recherche BnF."
+      );
+    }
 
-const bnfData = await bnfResponse.json();
+    const bnfData =
+      await bnfResponse.json();
 
-const bnfResults: BookResult[] = bnfData.map(
-  (book: any) => ({
-    title: book.title,
-    subtitle: book.subtitle || "",
-    author: book.author,
-    isbn: book.isbn,
-    coverUrl: book.coverUrl,
-    publisher: book.publisher,
-    publishedDate: book.publishedDate,
-    description: book.description || "",
-    language: book.language || "",
-    type: book.type || "BOOK",
-    volumeNumber: book.volumeNumber ?? null,
-    series: book.series || "",
-  })
-);
+    console.log(
+      "BNF DATA CÔTÉ ADD :",
+      bnfData
+    );
 
-setResults((current) => [
-  ...current,
-  ...bnfResults,
-]);
+    const bnfResults: BookResult[] =
+      Array.isArray(bnfData)
+        ? bnfData.map((book: any) => ({
+            title:
+              book.title ||
+              "Titre inconnu",
 
-return;
+            subtitle:
+              book.subtitle || "",
+
+            author:
+              book.author ||
+              "Auteur inconnu",
+
+            isbn:
+              book.isbn ||
+              "",
+
+            coverUrl:
+              book.coverUrl ||
+              null,
+
+            publisher:
+              book.publisher ||
+              "",
+
+            publishedDate:
+              book.publishedDate ||
+              "",
+
+            description:
+              book.description ||
+              "",
+
+            language:
+              book.language ||
+              "",
+
+            type:
+              book.type ||
+              "BOOK",
+
+            volumeNumber:
+              book.volumeNumber ??
+              null,
+
+            series:
+              book.series ||
+              "",
+          }))
+        : [];
+
+    console.log(
+      "BNF RESULTS CÔTÉ ADD :",
+      bnfResults
+    );
+
+    if (bnfResults.length > 0) {
+      setResults(bnfResults);
+      return;
+    }
 
     // =========================================================
     // 3. AUCUN RÉSULTAT
@@ -187,8 +379,6 @@ return;
     setLoading(false);
   }
 }
-  // =========================================================
-  // SCANNER CODE-BARRES
   // =========================================================
 
   function handleBarcodeDetected(isbn: string) {
@@ -347,21 +537,45 @@ return;
     // ---------------------------------------------------------
 
     if (existingBook) {
-      bookId = existingBook.id;
-    } else {
+  bookId = existingBook.id;
+
+  // Compléter les informations de série si elles sont disponibles
+  if (book.series || book.volumeNumber !== null) {
+    const { error: updateError } = await supabase
+      .from("books")
+      .update({
+        series: book.series || null,
+        series_number: book.volumeNumber ?? null,
+      })
+      .eq("id", existingBook.id);
+
+    if (updateError) {
+      console.error(updateError);
+      setError(
+        "Le livre existe déjà, mais ses informations de série n'ont pas pu être mises à jour."
+      );
+      setAdding(null);
+      return;
+    }
+  }
+} else {
+
+
       const {
         data: newBook,
         error: insertError,
       } = await supabase
         .from("books")
-        .insert({
-          title: book.title,
-          author: book.author,
-          isbn: book.isbn,
-          cover_url: book.coverUrl,
-          publisher: book.publisher,
-          published_date: book.publishedDate,
-        })
+       .insert({
+  title: book.title,
+  author: book.author,
+  isbn: book.isbn,
+  cover_url: book.coverUrl,
+  publisher: book.publisher,
+  published_date: book.publishedDate,
+  series: book.series || null,
+  series_number: book.volumeNumber ?? null,
+})
         .select("id")
         .single();
 

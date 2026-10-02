@@ -309,16 +309,58 @@ if (records.length === 0) {
         "a"
       );
 
-      const volumeValue = getFirstSubfield(
-        field225,
-        "v"
-      );
+     const volumeValue = getFirstSubfield(
+  field225,
+  "v"
+);
 
-      const volumeNumber =
-        volumeValue &&
-        !Number.isNaN(Number(volumeValue))
-          ? Number(volumeValue)
-          : null;
+// La BnF peut fournir le tome directement dans 225$v
+let volumeNumber: number | null = null;
+
+const structuredVolumeMatch =
+  volumeValue?.match(/\d+/);
+
+if (structuredVolumeMatch) {
+  volumeNumber = Number(
+    structuredVolumeMatch[0]
+  );
+}
+
+// Fallback : certaines notices indiquent le tome
+// directement dans le titre, par exemple :
+// "ONE PIECE 1" avec série = "ONE PIECE"
+if (
+  volumeNumber === null &&
+  series &&
+  editionTitle
+) {
+  const escapedSeries = series.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+
+  const titleAfterSeries =
+    editionTitle
+      .replace(
+        new RegExp(
+          `^${escapedSeries}\\s*`,
+          "i"
+        ),
+        ""
+      )
+      .trim();
+
+  const titleVolumeMatch =
+    titleAfterSeries.match(
+      /(?:tome|tom|volume|vol\.?|#)?\s*(\d+)\s*$/i
+    );
+
+  if (titleVolumeMatch) {
+    volumeNumber = Number(
+      titleVolumeMatch[1]
+    );
+  }
+}
 
       /*
        * Pour cette notice BnF :
