@@ -48,10 +48,10 @@ export default function BookPage() {
   const [loading, setLoading] = useState(true);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   function handleBarcodeDetected(isbn: string) {
   setScannerOpen(false);
   setQuery(isbn);
-  const [error, setError] = useState("");
 }
   useEffect(() => {
     loadBook();
