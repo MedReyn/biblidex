@@ -4,333 +4,584 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "../lib/supabase/client";
 
-type CollectionBook = {
-  id: string;
-  status: string;
-  rating: number | null;
-  books: {
-    id: string;
-    title: string;
-    author: string | null;
-    isbn: string | null;
-    cover_url: string | null;
-  };
+type FilterStatus =
+  | "ALL"
+  | "TO_READ"
+  | "READING"
+  | "READ"
+  | "ABANDONED";
+
+type Book = {
+  id: number;
+  title: string;
+  author: string | null;
+  isbn: string | null;
+  cover_url: string | null;
+  series: string | null;
+  series_number: number | null;
 };
 
-const filters = [
-  { value: "ALL", label: "Tous" },
-  { value: "TO_READ", label: "À lire" },
-  { value: "READING", label: "En cours" },
-  { value: "READ", label: "Lus" },
-  { value: "ABANDONED", label: "Abandonnés" },
-];
+type UserBook = {
+  id: number;
+  status: string;
+  rating: number | null;
+  books: Book | null;
+};
 
-const statusLabels: Record<string, string> = {
-  TO_READ: "À lire",
-  READING: "En cours",
-  READ: "Lu",
-  ABANDONED: "Abandonné",
+type SeriesGroup = {
+  name: string;
+  books: UserBook[];
 };
 
 export default function CollectionPage() {
   const supabase = createClient();
 
-  const [books, setBooks] = useState<CollectionBook[]>([]);
+  const [userBooks, setUserBooks] = useState<UserBook[]>([]);
+  const [activeFilter, setActiveFilter] =
+    useState<FilterStatus>("ALL");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [filter, setFilter] = useState("ALL");
-  const [search, setSearch] = useState("");
 
   useEffect(() => {
+    async function loadCollection() {
+      setLoading(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setUserBooks([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("user_books")
+        .select(`
+          id,
+          status,
+          rating,
+          books (
+            id,
+            title,
+            author,
+            isbn,
+            cover_url,
+            series,
+            series_number
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(
+          "Erreur chargement collection :",
+          error
+        );
+        setUserBooks([]);
+        setLoading(false);
+        return;
+      }
+
+      const validBooks =
+        ((data as unknown as UserBook[]) || []).filter(
+          (item) => item.books !== null
+        );
+
+      setUserBooks(validBooks);
+      setLoading(false);
+    }
+
     loadCollection();
   }, []);
 
-  async function loadCollection() {
-    setLoading(true);
-    setError("");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setError("Tu dois être connecté pour voir ta collection.");
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("user_books")
-      .select(`
-        id,
-        status,
-        rating,
-        books (
-          id,
-          title,
-          author,
-          isbn,
-          cover_url
-        )
-      `)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      setError("Impossible de charger ta collection.");
-      setLoading(false);
-      return;
-    }
-
-    setBooks((data as unknown as CollectionBook[]) || []);
-    setLoading(false);
-  }
-
   const filteredBooks = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    if (activeFilter === "ALL") {
+      return userBooks;
+    }
 
-    return books.filter((item) => {
-      const matchesFilter =
-        filter === "ALL" || item.status === filter;
+    return userBooks.filter(
+      (item) => item.status === activeFilter
+    );
+  }, [userBooks, activeFilter]);
 
-      if (!matchesFilter) {
+  /*
+   * On regroupe les livres par série.
+   *
+   * Une carte de série n'est affichée que si au moins
+   * 2 tomes de cette série sont présents dans le filtre actuel.
+   */
+  const seriesGroups = useMemo<SeriesGroup[]>(() => {
+    const groups = new Map<string, UserBook[]>();
+
+    filteredBooks.forEach((item) => {
+      const series = item.books?.series?.trim();
+
+      if (!series) {
+        return;
+      }
+
+      const key = series.toLowerCase();
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+
+      groups.get(key)!.push(item);
+    });
+
+    return Array.from(groups.entries())
+      .filter(([, books]) => books.length >= 2)
+      .map(([key, books]) => {
+        const sortedBooks = [...books].sort(
+          (a, b) =>
+            (a.books?.series_number ?? 9999) -
+            (b.books?.series_number ?? 9999)
+        );
+
+        return {
+          name:
+            sortedBooks[0].books?.series?.trim() || key,
+          books: sortedBooks,
+        };
+      })
+      .sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+  }, [filteredBooks]);
+
+  /*
+   * Les livres appartenant à une série affichée sont
+   * retirés de la grille individuelle.
+   */
+  const seriesBookIds = useMemo(() => {
+    const ids = new Set<number>();
+
+    seriesGroups.forEach((series) => {
+      series.books.forEach((item) => {
+        if (item.books) {
+          ids.add(item.books.id);
+        }
+      });
+    });
+
+    return ids;
+  }, [seriesGroups]);
+
+  const individualBooks = useMemo(() => {
+    return filteredBooks.filter((item) => {
+      if (!item.books) {
         return false;
       }
 
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      const title = item.books.title?.toLowerCase() || "";
-      const author = item.books.author?.toLowerCase() || "";
-      const isbn = item.books.isbn?.toLowerCase() || "";
-
-      return (
-        title.includes(normalizedSearch) ||
-        author.includes(normalizedSearch) ||
-        isbn.includes(normalizedSearch)
-      );
+      return !seriesBookIds.has(item.books.id);
     });
-  }, [books, filter, search]);
+  }, [filteredBooks, seriesBookIds]);
+
+  const stats = useMemo(() => {
+    return {
+      total: userBooks.length,
+      read: userBooks.filter(
+        (item) => item.status === "READ"
+      ).length,
+      reading: userBooks.filter(
+        (item) => item.status === "READING"
+      ).length,
+      toRead: userBooks.filter(
+        (item) => item.status === "TO_READ"
+      ).length,
+      abandoned: userBooks.filter(
+        (item) => item.status === "ABANDONED"
+      ).length,
+    };
+  }, [userBooks]);
+
+  const filters: {
+    key: FilterStatus;
+    label: string;
+    count: number;
+  }[] = [
+    {
+      key: "ALL",
+      label: "Tous",
+      count: stats.total,
+    },
+    {
+      key: "TO_READ",
+      label: "À lire",
+      count: stats.toRead,
+    },
+    {
+      key: "READING",
+      label: "En cours",
+      count: stats.reading,
+    },
+    {
+      key: "READ",
+      label: "Lus",
+      count: stats.read,
+    },
+    {
+      key: "ABANDONED",
+      label: "Abandonnés",
+      count: stats.abandoned,
+    },
+  ];
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#0f0f14] px-6 py-10 text-white">
+        <div className="mx-auto max-w-7xl">
+          <p className="text-white/60">
+            Chargement de ta collection...
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-[#080B18] px-5 py-8 pb-24 text-white">
-      <div className="mx-auto max-w-5xl">
-
+    <main className="min-h-screen bg-[#0f0f14] px-6 py-10 text-white">
+      <div className="mx-auto max-w-7xl">
         {/* HEADER */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <header className="mb-10">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="mb-2 text-sm font-medium uppercase tracking-widest text-white/40">
+                Biblidex
+              </p>
+
+              <h1 className="text-4xl font-bold">
+                Ma collection
+              </h1>
+
+              <p className="mt-2 text-white/50">
+                {stats.total}{" "}
+                {stats.total > 1 ? "livres" : "livre"} dans ta
+                bibliothèque
+              </p>
+            </div>
+
             <Link
-              href="/"
-              className="text-sm text-white/50 transition hover:text-white"
+              href="/add"
+              className="inline-flex w-fit items-center rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-white/90"
             >
-              ← Biblidex
+              + Ajouter un livre
             </Link>
+          </div>
+        </header>
 
-            <h1 className="mt-4 text-4xl font-black">
-              Ma collection
-            </h1>
-
-            <p className="mt-2 text-white/50">
-              {filteredBooks.length} livre
-              {filteredBooks.length > 1 ? "s" : ""}
+        {/* STATS */}
+        <section className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-white/40">
+              Total
+            </p>
+            <p className="mt-1 text-3xl font-bold">
+              {stats.total}
             </p>
           </div>
 
-          <Link
-            href="/add"
-            className="shrink-0 rounded-2xl bg-gradient-to-r from-orange-400 via-pink-500 to-violet-500 px-5 py-3 text-sm font-bold transition hover:opacity-90"
-          >
-            + Ajouter
-          </Link>
-        </div>
-
-        {/* RECHERCHE */}
-        <div className="mt-8">
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-            <span className="text-lg text-white/40">
-              ⌕
-            </span>
-
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher un livre, un auteur ou un ISBN..."
-              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-            />
-
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="text-xs text-white/40 transition hover:text-white"
-                aria-label="Effacer la recherche"
-              >
-                Effacer
-              </button>
-            )}
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-white/40">
+              Lus
+            </p>
+            <p className="mt-1 text-3xl font-bold">
+              {stats.read}
+            </p>
           </div>
-        </div>
 
-        {/* FILTRES */}
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-          {filters.map((item) => {
-            const count =
-              item.value === "ALL"
-                ? books.length
-                : books.filter(
-                    (book) => book.status === item.value
-                  ).length;
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-white/40">
+              En cours
+            </p>
+            <p className="mt-1 text-3xl font-bold">
+              {stats.reading}
+            </p>
+          </div>
 
-            const active = filter === item.value;
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-white/40">
+              À lire
+            </p>
+            <p className="mt-1 text-3xl font-bold">
+              {stats.toRead}
+            </p>
+          </div>
+        </section>
+
+        {/* FILTERS */}
+        <div className="mb-10 flex flex-wrap gap-2">
+          {filters.map((filter) => {
+            const active =
+              activeFilter === filter.key;
 
             return (
               <button
-                key={item.value}
+                key={filter.key}
                 type="button"
-                onClick={() => setFilter(item.value)}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                onClick={() =>
+                  setActiveFilter(filter.key)
+                }
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   active
-                    ? "bg-white text-[#080B18]"
+                    ? "bg-white text-black"
                     : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                {item.label}
-
-                <span className="ml-2 opacity-50">
-                  {count}
+                {filter.label}
+                <span
+                  className={`ml-2 ${
+                    active
+                      ? "text-black/50"
+                      : "text-white/30"
+                  }`}
+                >
+                  {filter.count}
                 </span>
               </button>
             );
           })}
         </div>
 
-        {/* CONTENU */}
-        <div className="mt-10">
+        {/* SERIES */}
+        {seriesGroups.length > 0 && (
+          <section className="mb-12">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">
+                Séries
+              </h2>
 
-          {/* LOADING */}
-          {loading && (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/50">
-              Chargement de ta collection...
+              <span className="text-sm text-white/40">
+                {seriesGroups.length}{" "}
+                {seriesGroups.length > 1
+                  ? "séries"
+                  : "série"}
+              </span>
             </div>
-          )}
 
-          {/* ERROR */}
-          {!loading && error && (
-            <div className="rounded-3xl border border-red-400/20 bg-red-400/10 p-6 text-red-300">
-              {error}
+            <div className="grid gap-5 md:grid-cols-2">
+              {seriesGroups.map((series) => {
+                const readCount =
+                  series.books.filter(
+                    (item) => item.status === "READ"
+                  ).length;
+
+                const progress =
+                  series.books.length > 0
+                    ? Math.round(
+                        (readCount /
+                          series.books.length) *
+                          100
+                      )
+                    : 0;
+
+                return (
+                  <Link
+                    key={series.name}
+                    href={`/series/${encodeURIComponent(
+                      series.name
+                    )}`}
+                    className="block overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-1 hover:bg-white/[0.08]"
+                  >
+                    <div className="mb-4 flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-bold">
+                          {series.name}
+                        </h3>
+
+                        <p className="mt-1 text-sm text-white/40">
+                          {series.books.length}{" "}
+                          {series.books.length > 1
+                            ? "tomes"
+                            : "tome"}
+                        </p>
+                      </div>
+
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/60">
+                        {readCount}/
+                        {series.books.length} lus
+                      </span>
+                    </div>
+
+                    {/* COVERS */}
+                    <div className="mb-5 flex gap-3 overflow-hidden">
+                      {series.books
+                        .slice(0, 5)
+                        .map((item) => {
+                          if (!item.books) {
+                            return null;
+                          }
+
+                          return (
+                            <div
+                              key={item.id}
+                              className="relative h-32 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-white/5"
+                            >
+                              {item.books.cover_url ? (
+                                <img
+                                  src={
+                                    item.books.cover_url
+                                  }
+                                  alt={item.books.title}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center p-2 text-center text-xs text-white/30">
+                                  Pas de couverture
+                                </div>
+                              )}
+
+                              {item.books.series_number !==
+                                null && (
+                                <div className="absolute bottom-1 left-1 rounded-md bg-black/80 px-1.5 py-0.5 text-[10px] font-bold">
+                                  T.
+                                  {
+                                    item.books
+                                      .series_number
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    {/* PROGRESS */}
+                    <div>
+                      <div className="mb-2 flex justify-between text-xs text-white/40">
+                        <span>
+                          Progression
+                        </span>
+
+                        <span>
+                          {progress}%
+                        </span>
+                      </div>
+
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-white transition-all"
+                          style={{
+                            width: `${progress}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
-          )}
+          </section>
+        )}
 
-          {/* COLLECTION VIDE */}
-          {!loading && !error && books.length === 0 && (
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
-              <div className="text-5xl">
+        {/* BOOKS */}
+        <section>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-2xl font-bold">
+              {seriesGroups.length > 0
+                ? "Livres"
+                : "Ma bibliothèque"}
+            </h2>
+
+            <span className="text-sm text-white/40">
+              {individualBooks.length}{" "}
+              {individualBooks.length > 1
+                ? "livres"
+                : "livre"}
+            </span>
+          </div>
+
+          {individualBooks.length === 0 ? (
+            <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-16 text-center">
+              <div className="mb-4 text-5xl">
                 📚
               </div>
 
-              <h2 className="mt-5 text-2xl font-bold">
-                Ta collection est vide
-              </h2>
+              <h3 className="text-xl font-semibold">
+                Aucun livre à afficher
+              </h3>
 
-              <p className="mt-2 text-white/50">
-                Ajoute ton premier livre pour commencer ton Biblidex.
+              <p className="mt-2 text-white/40">
+                Ajoute des livres à ta collection pour
+                les retrouver ici.
               </p>
 
               <Link
                 href="/add"
-                className="mt-6 inline-block rounded-2xl bg-white px-6 py-3 font-bold text-[#080B18]"
+                className="mt-6 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black"
               >
-                Ajouter mon premier livre
+                Ajouter un livre
               </Link>
             </div>
-          )}
+          ) : (
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {individualBooks.map((item) => {
+                if (!item.books) {
+                  return null;
+                }
 
-          {/* AUCUN RÉSULTAT */}
-          {!loading &&
-            !error &&
-            books.length > 0 &&
-            filteredBooks.length === 0 && (
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
-                <div className="text-4xl">
-                  🔎
-                </div>
+                const book = item.books;
 
-                <h2 className="mt-5 text-xl font-bold">
-                  Aucun livre trouvé
-                </h2>
-
-                <p className="mt-2 text-sm text-white/50">
-                  Aucun livre ne correspond à ta recherche ou à ce filtre.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setFilter("ALL");
-                  }}
-                  className="mt-6 rounded-2xl bg-white px-6 py-3 text-sm font-bold text-[#080B18]"
-                >
-                  Réinitialiser
-                </button>
-              </div>
-            )}
-
-          {/* LIVRES */}
-          {!loading &&
-            !error &&
-            filteredBooks.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-
-                {filteredBooks.map((item) => {
-                  const statusLabel =
-                    statusLabels[item.status] || item.status;
-
-                  return (
-                    <Link
-                      key={item.id}
-                      href={`/book/${item.books.id}`}
-                      className="group overflow-hidden rounded-3xl border border-white/10 bg-white/5 transition hover:-translate-y-1 hover:bg-white/10"
-                    >
-                      {/* COVER */}
-                      <div className="aspect-[2/3] overflow-hidden bg-gradient-to-br from-orange-400 via-pink-500 to-violet-500">
-                        {item.books.cover_url ? (
-                          <img
-                            src={item.books.cover_url}
-                            alt={item.books.title}
-                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center p-5 text-center text-xl font-black">
-                            {item.books.title}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* INFOS */}
-                      <div className="p-4">
-                        <h2 className="line-clamp-2 font-bold">
-                          {item.books.title}
-                        </h2>
-
-                        <p className="mt-1 line-clamp-1 text-sm text-white/50">
-                          {item.books.author || "Auteur inconnu"}
-                        </p>
-
-                        <div className="mt-3 inline-flex rounded-full bg-orange-400/10 px-3 py-1 text-xs font-semibold text-orange-300">
-                          {statusLabel}
+                return (
+                  <Link
+                    key={item.id}
+                    href={`/book/${book.id}`}
+                    className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-1 hover:bg-white/10"
+                  >
+                    <div className="relative aspect-[2/3] overflow-hidden bg-white/5">
+                      {book.cover_url ? (
+                        <img
+                          src={book.cover_url}
+                          alt={book.title}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center p-4 text-center text-sm text-white/30">
+                          Pas de couverture
                         </div>
-                      </div>
-                    </Link>
-                  );
-                })}
+                      )}
 
-              </div>
-            )}
-        </div>
+                      <div className="absolute bottom-3 left-3 rounded-full bg-black/80 px-3 py-1 text-xs backdrop-blur">
+                        {item.status === "READ"
+                          ? "Lu"
+                          : item.status ===
+                              "READING"
+                            ? "En cours"
+                            : item.status ===
+                                "TO_READ"
+                              ? "À lire"
+                              : "Abandonné"}
+                      </div>
+                    </div>
+
+                    <div className="p-4">
+                      <h3 className="line-clamp-2 font-semibold">
+                        {book.title}
+                      </h3>
+
+                      {book.author && (
+                        <p className="mt-1 line-clamp-1 text-sm text-white/40">
+                          {book.author}
+                        </p>
+                      )}
+
+                      {book.series && (
+                        <p className="mt-2 line-clamp-1 text-xs text-white/30">
+                          {book.series}
+                          {book.series_number !==
+                            null &&
+                            ` · Tome ${book.series_number}`}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );
