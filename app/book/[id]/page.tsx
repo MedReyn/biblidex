@@ -87,7 +87,7 @@ export default function BookPage() {
     const { data: bookData, error: bookError } = await supabase
       .from("books")
       .select(
-        \`
+        `
           id,
           title,
           author,
@@ -98,7 +98,7 @@ export default function BookPage() {
           description,
           series,
           series_number
-        \`
+        `
       )
       .eq("id", bookId)
       .single();
@@ -116,7 +116,7 @@ export default function BookPage() {
       const { data, error: editionError } = await supabase
         .from("editions")
         .select(
-          \`
+          `
             id,
             isbn,
             publisher,
@@ -124,7 +124,7 @@ export default function BookPage() {
             cover_url,
             language,
             format
-          \`
+          `
         )
         .eq("isbn", bookData.isbn)
         .maybeSingle();
