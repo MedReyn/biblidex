@@ -19,6 +19,53 @@ export default function AddBookPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [collectionBooks, setCollectionBooks] = useState<string[]>([]);
+  useEffect(() => {
+  async function loadCollection() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setCollectionBooks([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("user_books")
+      .select(`
+        books (
+          isbn
+        )
+      `)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error(
+        "Erreur chargement collection :",
+        error
+      );
+      return;
+    }
+
+    const isbns = (data ?? [])
+      .map((row) => {
+        const book = Array.isArray(row.books)
+          ? row.books[0]
+          : row.books;
+
+        return book?.isbn;
+      })
+      .filter(
+        (isbn): isbn is string =>
+          Boolean(isbn)
+      );
+
+    setCollectionBooks(isbns);
+  }
+
+  loadCollection();
+}, []);
 
   // =========================================================
 async function searchBooks(queryValue: string) {
@@ -94,12 +141,18 @@ useEffect(() => {
   try {
     const result = await addBookToCollection(book);
 
-    if (result.success) {
-      setMessage(
-        result.message ||
-          `« ${book.title} » a été ajouté à ta collection.`
-      );
-    } else {
+if (result.success) {
+  setCollectionBooks((current) =>
+    current.includes(book.isbn)
+      ? current
+      : [...current, book.isbn]
+  );
+
+  setMessage(
+    result.message ||
+      `« ${book.title} » a été ajouté à ta collection.`
+  );
+} else {
       if (result.alreadyExists) {
         setMessage(
           result.message ||
@@ -120,6 +173,9 @@ useEffect(() => {
   } finally {
     setAdding(null);
   }
+}
+function isBookInCollection(book: BookResult) {
+  return collectionBooks.includes(book.isbn);
 }
   // =========================================================
   // INTERFACE
@@ -211,8 +267,12 @@ useEffect(() => {
               {results.length > 1 ? "s" : ""}
             </p>
 
-            {results.map((book) => (
-              <article
+{results.map((book) => {
+  const alreadyInCollection =
+    isBookInCollection(book);
+
+  return (
+    <article
                 key={`${book.isbn}-${book.title}-${book.publisher}-${book.publishedDate}`}
                 className="flex gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10"
               >
@@ -255,7 +315,11 @@ useEffect(() => {
                   <p className="mt-1 text-sm text-white/60">
                     {book.author}
                   </p>
-
+{alreadyInCollection && (
+  <span className="mt-2 inline-flex rounded-full bg-yellow-300/15 px-2 py-1 text-[9px] font-bold text-yellow-300">
+    ✓DÉJÀ AJOUTÉ
+  </span>
+)}
                   {book.publishedDate && (
                     <p className="mt-2 text-xs text-white/40">
                       {book.publishedDate}
@@ -268,19 +332,22 @@ useEffect(() => {
                     </p>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => addBook(book)}
-                    disabled={adding === book.isbn}
-                    className="mt-4 rounded-xl bg-white px-4 py-2 text-sm font-bold text-[#080B18] transition hover:bg-white/90 disabled:opacity-50"
-                  >
-                    {adding === book.isbn
-                      ? "Ajout..."
-                      : "＋ Ajouter à ma collection"}
-                  </button>
+{!alreadyInCollection && (
+  <button
+    type="button"
+    onClick={() => addBook(book)}
+    disabled={adding === book.isbn}
+    className="mt-4 rounded-xl bg-white px-4 py-2 text-sm font-bold text-[#080B18] transition hover:bg-white/90 disabled:opacity-50"
+  >
+    {adding === book.isbn
+      ? "Ajout..."
+      : "＋ Ajouter à ma collection"}
+  </button>
+)}
                 </div>
               </article>
-            ))}
+  );
+})}
           </div>
         )}
 
