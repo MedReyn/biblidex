@@ -25,6 +25,8 @@ export async function addBookToCollection(
     };
   }
 
+  const isbn = book.isbn.trim();
+
   // =========================================================
   // 2. CHERCHER SI L'ŒUVRE EXISTE DÉJÀ
   // =========================================================
@@ -65,6 +67,7 @@ export async function addBookToCollection(
       .insert({
         title: book.title,
         author: book.author,
+        description: book.description || null,
         cover_url: book.coverUrl,
         type: book.type,
         volume_number: book.volumeNumber,
@@ -85,78 +88,38 @@ export async function addBookToCollection(
   }
 
   // =========================================================
-  // 4. CHERCHER L'ÉDITION PAR ISBN
+  // 4. CHERCHER LE LIVRE DANS books
   // =========================================================
 
-  const {
-    data: existingEdition,
-    error: editionSearchError,
-  } = await supabase
-    .from("editions")
-    .select("id")
-    .eq("isbn", book.isbn)
-    .maybeSingle();
+  let bookId: number;
 
-  if (editionSearchError) {
-    console.error(editionSearchError);
+  let existingBook = null;
 
-    return {
-      success: false,
-      message: "Impossible de vérifier l'édition.",
-    };
-  }
+  // On ne cherche par ISBN que si un ISBN est renseigné.
+  if (isbn) {
+    const {
+      data,
+      error: searchError,
+    } = await supabase
+      .from("books")
+      .select("id")
+      .eq("isbn", isbn)
+      .maybeSingle();
 
-  // =========================================================
-  // 5. CRÉER L'ÉDITION SI NÉCESSAIRE
-  // =========================================================
-
-  if (!existingEdition) {
-    const { error: editionInsertError } = await supabase
-      .from("editions")
-      .insert({
-        work_id: workId,
-        isbn: book.isbn,
-        publisher: book.publisher,
-        published_date: book.publishedDate,
-        cover_url: book.coverUrl,
-      });
-
-    if (editionInsertError) {
-      console.error(editionInsertError);
+    if (searchError) {
+      console.error(searchError);
 
       return {
         success: false,
-        message: "Impossible d'enregistrer l'édition.",
+        message: "Impossible de vérifier le livre.",
       };
     }
+
+    existingBook = data;
   }
 
   // =========================================================
-  // 6. CHERCHER LE LIVRE DANS LA TABLE books
-  // =========================================================
-
-  let bookId: string;
-
-  const {
-    data: existingBook,
-    error: searchError,
-  } = await supabase
-    .from("books")
-    .select("id")
-    .eq("isbn", book.isbn)
-    .maybeSingle();
-
-  if (searchError) {
-    console.error(searchError);
-
-    return {
-      success: false,
-      message: "Impossible de vérifier le livre.",
-    };
-  }
-
-  // =========================================================
-  // 7. UTILISER LE LIVRE EXISTANT OU LE CRÉER
+  // 5. UTILISER LE LIVRE EXISTANT OU LE CRÉER
   // =========================================================
 
   if (existingBook) {
@@ -190,10 +153,11 @@ export async function addBookToCollection(
       .insert({
         title: book.title,
         author: book.author,
-        isbn: book.isbn,
+        isbn: isbn || null,
         cover_url: book.coverUrl,
         publisher: book.publisher,
         published_date: book.publishedDate,
+        description: book.description || null,
         series: book.series || null,
         series_number: book.volumeNumber ?? null,
       })
@@ -213,7 +177,53 @@ export async function addBookToCollection(
   }
 
   // =========================================================
-  // 8. AJOUTER LE LIVRE À LA COLLECTION
+  // 6. CRÉER L'ÉDITION UNIQUEMENT SI ISBN RENSEIGNÉ
+  // =========================================================
+
+  if (isbn) {
+    const {
+      data: existingEdition,
+      error: editionSearchError,
+    } = await supabase
+      .from("editions")
+      .select("id")
+      .eq("isbn", isbn)
+      .maybeSingle();
+
+    if (editionSearchError) {
+      console.error(editionSearchError);
+
+      return {
+        success: false,
+        message: "Impossible de vérifier l'édition.",
+      };
+    }
+
+    if (!existingEdition) {
+      const { error: editionInsertError } = await supabase
+        .from("editions")
+        .insert({
+          work_id: workId,
+          isbn,
+          publisher: book.publisher,
+          published_date: book.publishedDate,
+          cover_url: book.coverUrl,
+          language: book.language || null,
+        });
+
+      if (editionInsertError) {
+        console.error(editionInsertError);
+
+        return {
+          success: false,
+          message: "Impossible d'enregistrer l'édition.",
+        };
+      }
+    }
+  }
+
+  // =========================================================
+  // 7. AJOUTER LE LIVRE À LA COLLECTION
   // =========================================================
 
   const { error: userBookError } = await supabase

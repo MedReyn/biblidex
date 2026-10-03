@@ -217,7 +217,12 @@ function isBookInCollection(book: BookResult) {
         >
           Scanner le code-barres
         </button>
-
+<Link
+  href="/add/manual"
+  className="mt-3 flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-bold transition hover:bg-white/10"
+>
+  ＋ Ajouter manuellement
+</Link>
         {/* SEARCH */}
 
         <form
