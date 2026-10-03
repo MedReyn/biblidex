@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import BarcodeScanner from "../components/BarcodeScanner";
 import { createClient } from "../lib/supabase/client";
@@ -22,7 +22,6 @@ type BookResult = {
 
 export default function AddBookPage() {
   const supabase = createClient();
-
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<BookResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -159,6 +158,19 @@ async function searchBooks(queryValue: string) {
     .replace(/\s*series\s*$/i, "")
     .trim();
 }
+// =========================================================
+// ISBN transmis depuis une autre page
+// =========================================================
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const isbnFromUrl = params.get("isbn");
+
+  if (isbnFromUrl) {
+    setQuery(isbnFromUrl);
+    searchBooks(isbnFromUrl);
+  }
+}, []);
 
               // 2. Si aucune série n'est trouvée,
               //    on peut la déduire du titre lorsqu'un

@@ -168,8 +168,8 @@ export default function SearchPage() {
                   )}
 
                   <div className="mt-4 text-sm font-semibold text-pink-400">
-                    Voir le livre →
-                  </div>
+  ＋ Ajouter à ma collection
+</div>
                 </div>
               </Link>
             ))}
