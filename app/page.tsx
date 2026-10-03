@@ -171,9 +171,14 @@ async function handleAddBook(book: BookResult) {
     (book) => book.status === "READING"
   );
 
-  const recentBooks = books.slice(0, 6);
+ const recentBooks = books.slice(0, 6);
 
-  return (
+const isBookInCollection = (book: BookResult) =>
+  books.some(
+    (userBook) => userBook.books?.isbn === book.isbn
+  ) || addedBooks.includes(book.isbn);
+
+return (
     <main className="min-h-screen bg-[#090B18] text-white">
       <div className="mx-auto flex min-h-screen max-w-md flex-col">
 
@@ -230,61 +235,68 @@ async function handleAddBook(book: BookResult) {
 {searchResults.length > 0 && (
   <section className="px-5 pt-4">
     <div className="space-y-3">
-      {searchResults.map((book) => (
-        <article
-          key={`${book.isbn}-${book.title}-${book.publisher}`}
-          className="flex gap-3 rounded-2xl bg-white/[0.06] p-3"
-        >
-          <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-white/10">
-            {book.coverUrl ? (
-              <img
-                src={book.coverUrl}
-                alt={book.title}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center p-2 text-center text-xs">
-                📚
-              </div>
-            )}
-          </div>
+      {searchResults.map((book) => {
+        const alreadyInCollection = isBookInCollection(book);
 
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold">
-              {book.title}
-            </h2>
+        return (
+          <article
+            key={`${book.isbn}-${book.title}-${book.publisher}`}
+            className="flex gap-3 rounded-2xl bg-white/[0.06] p-3"
+          >
+            <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-white/10">
+              {book.coverUrl ? (
+                <img
+                  src={book.coverUrl}
+                  alt={book.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center p-2 text-center text-xs">
+                  📚
+                </div>
+              )}
+            </div>
 
-            <p className="mt-1 truncate text-xs text-white/50">
-              {book.author}
-            </p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-bold">
+                {book.title}
+              </h2>
 
-            {book.series && (
-              <p className="mt-1 text-[10px] text-white/40">
-                {book.series}
-                {book.volumeNumber
-                  ? ` · Tome ${book.volumeNumber}`
-                  : ""}
+              <p className="mt-1 truncate text-xs text-white/50">
+                {book.author}
               </p>
-            )}
 
-<button
-  type="button"
-  onClick={() => handleAddBook(book)}
-  disabled={
-    addingBook === book.isbn ||
-    addedBooks.includes(book.isbn)
-  }
-  className="mt-3 rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-[#080B18] transition hover:bg-white/90 disabled:opacity-60"
->
-  {addingBook === book.isbn
-    ? "Ajout..."
-    : addedBooks.includes(book.isbn)
-      ? "✓ Ajouté"
+              {alreadyInCollection && (
+                <span className="mt-2 inline-flex rounded-full bg-yellow-300/15 px-2 py-1 text-[9px] font-bold text-yellow-300">
+                  ✓ DÉJÀ AJOUTÉ
+                </span>
+              )}
+
+              {book.series && (
+                <p className="mt-1 text-[10px] text-white/40">
+                  {book.series}
+                  {book.volumeNumber
+                    ? ` · Tome ${book.volumeNumber}`
+                    : ""}
+                </p>
+              )}
+
+             {!alreadyInCollection && (
+  <button
+    type="button"
+    onClick={() => handleAddBook(book)}
+    disabled={addingBook === book.isbn}
+    className="mt-3 rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-[#080B18] transition hover:bg-white/90 disabled:opacity-60"
+  >
+    {addingBook === book.isbn
+      ? "Ajout..."
       : "＋ Ajouter à ma collection"}
-</button>
-          </div>
-        </article>
-      ))}
+  </button>
+)}
+            </div>
+          </article>
+        );
+      })}
     </div>
   </section>
 )}
@@ -380,11 +392,11 @@ async function handleAddBook(book: BookResult) {
                         {book.title || "Livre sans titre"}
                       </p>
 
-                      {book.author && (
-                        <p className="mt-1 truncate text-xs text-white/50">
-                          {book.author}
-                        </p>
-                      )}
+{book.author && (
+  <p className="mt-1 truncate text-xs text-white/50">
+    {book.author}
+  </p>
+)}
 
                       <p className="mt-3 text-[10px] font-semibold text-yellow-300">
                         EN COURS
