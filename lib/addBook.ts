@@ -28,7 +28,55 @@ export async function addBookToCollection(
   const isbn = book.isbn.trim();
 
   // =========================================================
-  // 2. CHERCHER SI L'ŒUVRE EXISTE DÉJÀ
+  // 2. VÉRIFIER SI LE LIVRE EST DÉJÀ DANS LA COLLECTION
+  // =========================================================
+
+  const { data: userBooks, error: userBooksSearchError } = await supabase
+    .from("user_books")
+    .select("book_id")
+    .eq("user_id", user.id);
+
+  if (userBooksSearchError) {
+    console.error(userBooksSearchError);
+
+    return {
+      success: false,
+      message: "Impossible de vérifier ta collection.",
+    };
+  }
+
+  const userBookIds = (userBooks ?? []).map((item) => item.book_id);
+
+  if (userBookIds.length > 0) {
+    const { data: duplicateBook, error: duplicateSearchError } = await supabase
+      .from("books")
+      .select("id")
+      .in("id", userBookIds)
+      .ilike("title", book.title.trim())
+      .ilike("author", book.author.trim())
+      .limit(1)
+      .maybeSingle();
+
+    if (duplicateSearchError) {
+      console.error(duplicateSearchError);
+
+      return {
+        success: false,
+        message: "Impossible de vérifier si le livre est déjà dans ta collection.",
+      };
+    }
+
+    if (duplicateBook) {
+      return {
+        success: false,
+        alreadyExists: true,
+        message: "Ce livre est déjà dans ta collection.",
+      };
+    }
+  }
+
+  // =========================================================
+  // 3. CHERCHER SI L'ŒUVRE EXISTE DÉJÀ
   // =========================================================
 
   const {

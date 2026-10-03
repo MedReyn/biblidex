@@ -55,17 +55,31 @@ try {
 
   console.log("RÉSULTAT AJOUT MANUEL :", result);
 
-  if (result.success || result.alreadyExists) {
-    console.log("REDIRECTION VERS COLLECTION");
+ if (result.success) {
+  console.log("REDIRECTION VERS COLLECTION");
 
-    window.location.href = "/collection";
-    return;
-  }
+  window.location.href = "/collection";
+  return;
+}
 
+if (result.alreadyExists) {
   setError(
     result.message ||
-      "Impossible d'ajouter le livre à ta collection."
+      "Ce livre est déjà dans ta collection."
   );
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+
+  return;
+}
+
+setError(
+  result.message ||
+    "Impossible d'ajouter le livre à ta collection."
+);
 } catch (error) {
     console.error("Erreur ajout manuel :", error);
 
