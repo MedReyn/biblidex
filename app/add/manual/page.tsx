@@ -63,10 +63,16 @@ try {
 }
 
 if (result.alreadyExists) {
-  setMessage(
+  setError(
     result.message ||
       "Ce livre est déjà dans ta collection."
   );
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+
   return;
 }
 
