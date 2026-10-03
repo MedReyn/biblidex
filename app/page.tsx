@@ -63,9 +63,19 @@ export default function Home() {
       if (error) {
         console.error("Erreur chargement Home :", error);
         setBooks([]);
-      } else {
-        setBooks((data as UserBook[]) || []);
-      }
+ } else {
+  const normalizedBooks: UserBook[] = (data ?? []).map((row) => ({
+    id: row.id,
+    status: row.status,
+    created_at: row.created_at,
+    book_id: row.book_id,
+    books: Array.isArray(row.books)
+      ? row.books[0] ?? null
+      : row.books ?? null,
+  }));
+
+  setBooks(normalizedBooks);
+}
 
       setLoading(false);
     }
