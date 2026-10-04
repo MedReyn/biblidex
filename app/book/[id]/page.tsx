@@ -250,8 +250,8 @@ export default function BookPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#080B18] p-6 text-white">
-        <div className="mx-auto max-w-3xl py-20 text-center text-white/50">
+      <main className="min-h-screen bg-[#FFF9F2] p-6 text-[#31095A]">
+        <div className="mx-auto max-w-3xl py-20 text-center text-[#31095A]/50">
           Chargement...
         </div>
       </main>
@@ -264,7 +264,7 @@ export default function BookPage() {
 
   if (error || !book) {
     return (
-      <main className="min-h-screen bg-[#080B18] p-6 text-white">
+      <main className="min-h-screen bg-[#FFF9F2] p-6 text-[#31095A]">
         <div className="mx-auto max-w-3xl py-20 text-center">
           <div className="text-5xl">
             📚
@@ -291,7 +291,7 @@ export default function BookPage() {
     )?.label || "À lire";
 
   return (
-    <main className="min-h-screen bg-[#080B18] px-5 py-8 pb-20 text-white">
+    <main className="min-h-screen bg-[#FFF9F2] px-5 py-8 pb-20 text-[#31095A]">
       <div className="mx-auto max-w-3xl">
 
         {/* =========================
@@ -300,7 +300,7 @@ export default function BookPage() {
 
         <Link
           href="/collection"
-          className="text-sm text-white/50 transition hover:text-white"
+          className="text-sm text-[#31095A]/50 transition hover:text-[#31095A]"
         >
           ← Ma collection
         </Link>
@@ -314,7 +314,7 @@ export default function BookPage() {
           {/* COUVERTURE */}
 
           <div className="mx-auto w-full max-w-[260px]">
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl">
+            <div className="overflow-hidden rounded-3xl border border-[#31095A]/10 bg-white shadow-2xl">
               {book.cover_url ? (
                 <img
                   src={book.cover_url}
@@ -333,7 +333,7 @@ export default function BookPage() {
 
           <div>
 
-            <p className="text-sm font-semibold uppercase tracking-widest text-pink-400">
+            <p className="text-sm font-semibold uppercase tracking-widest text-[#F837E2]">
               Mon livre
             </p>
 
@@ -341,7 +341,7 @@ export default function BookPage() {
               {book.title}
             </h1>
 
-            <p className="mt-3 text-lg text-white/60">
+            <p className="mt-3 text-lg text-[#31095A]/60">
               {book.author || "Auteur inconnu"}
             </p>
 
@@ -351,7 +351,7 @@ export default function BookPage() {
 
             {userBook && (
               <div className="mt-8">
-                <label className="mb-2 block text-sm font-semibold text-white/60">
+                <label className="mb-2 block text-sm font-semibold text-[#31095A]/60">
                   Statut
                 </label>
 
@@ -361,20 +361,20 @@ export default function BookPage() {
                   onChange={(event) =>
                     updateStatus(event.target.value)
                   }
-                  className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-4 text-white outline-none transition focus:border-pink-400"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-white px-4 py-4 text-[#31095A] outline-none transition focus:border-pink-400"
                 >
                   {statuses.map((status) => (
                     <option
                       key={status.value}
                       value={status.value}
-                      className="bg-[#080B18]"
+                      className="bg-[#FFF9F2]"
                     >
                       {status.label}
                     </option>
                   ))}
                 </select>
 
-                <p className="mt-2 text-xs text-white/40">
+                <p className="mt-2 text-xs text-[#31095A]/40">
                   Statut actuel : {currentStatus}
                 </p>
               </div>
@@ -386,7 +386,7 @@ export default function BookPage() {
 
             {userBook && (
               <div className="mt-8">
-                <p className="mb-3 text-sm font-semibold text-white/60">
+                <p className="mb-3 text-sm font-semibold text-[#31095A]/60">
                   Ma note
                 </p>
 
@@ -401,7 +401,7 @@ export default function BookPage() {
                       className={`text-3xl transition ${
                         (userBook.rating || 0) >= star
                           ? "text-yellow-300"
-                          : "text-white/20 hover:text-yellow-200"
+                          : "text-[#31095A]/20 hover:text-yellow-200"
                       }`}
                     >
                       ★
@@ -410,7 +410,7 @@ export default function BookPage() {
                 </div>
 
                 {userBook.rating && (
-                  <p className="mt-2 text-xs text-white/40">
+                  <p className="mt-2 text-xs text-[#31095A]/40">
                     {userBook.rating}/5
                   </p>
                 )}
@@ -435,7 +435,7 @@ export default function BookPage() {
         ========================= */}
 
         <section className="mt-12">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-pink-400">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#F837E2]">
             Édition
           </p>
 
@@ -481,9 +481,9 @@ export default function BookPage() {
             ACTIONS
         ========================= */}
 
-        <section className="mt-12 border-t border-white/10 pt-8">
+        <section className="mt-12 border-t border-[#31095A]/10 pt-8">
 
-          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-white/30">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#31095A]/30">
             Actions
           </p>
 
@@ -513,8 +513,8 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white/5 p-4">
-      <p className="text-xs text-white/40">
+    <div className="rounded-2xl bg-white p-4">
+      <p className="text-xs text-[#31095A]/40">
         {label}
       </p>
 

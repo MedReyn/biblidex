@@ -29,6 +29,15 @@ export default function AddBookPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualAuthor, setManualAuthor] = useState("");
+  const [manualIsbn, setManualIsbn] = useState("");
+  const [manualPublisher, setManualPublisher] = useState("");
+  const [manualPublishedDate, setManualPublishedDate] = useState("");
+  const [manualSeries, setManualSeries] = useState("");
+  const [manualVolume, setManualVolume] = useState("");
+  const [manualType, setManualType] = useState("BOOK");
 
   // =========================================================
 async function searchBooks(queryValue: string) {
@@ -402,6 +411,151 @@ useEffect(() => {
   }
 
   // =========================================================
+  // AJOUT MANUEL
+  // =========================================================
+
+  async function addManualBook(e: FormEvent) {
+    e.preventDefault();
+
+    const title = manualTitle.trim();
+
+    if (!title) {
+      setError("Le titre est obligatoire.");
+      return;
+    }
+
+    setAdding("manual");
+    setError("");
+    setMessage("");
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setError("Tu dois être connecté pour ajouter un livre.");
+      setAdding(null);
+      return;
+    }
+
+    const isbn = manualIsbn.trim() || null;
+    const author = manualAuthor.trim() || null;
+    const publisher = manualPublisher.trim() || null;
+    const publishedDate = manualPublishedDate.trim() || null;
+    const series = manualSeries.trim() || null;
+    const volumeNumber = manualVolume.trim()
+      ? Number(manualVolume)
+      : null;
+
+    if (
+      manualVolume.trim() &&
+      (!Number.isInteger(volumeNumber) || Number(volumeNumber) < 1)
+    ) {
+      setError("Le numéro de tome doit être un entier positif.");
+      setAdding(null);
+      return;
+    }
+
+    try {
+      // Créer l'œuvre pour conserver la même structure que les ajouts
+      // provenant d'Open Library / BnF.
+      const { data: work, error: workError } = await supabase
+        .from("works")
+        .insert({
+          title,
+          author,
+          type: manualType,
+          volume_number: volumeNumber,
+        })
+        .select("id")
+        .single();
+
+      if (workError || !work) {
+        console.error(workError);
+        setError("Impossible de créer l'œuvre.");
+        setAdding(null);
+        return;
+      }
+
+      const { error: editionError } = await supabase
+        .from("editions")
+        .insert({
+          work_id: work.id,
+          isbn,
+          publisher,
+          published_date: publishedDate,
+          language: null,
+          format: null,
+          cover_url: null,
+        });
+
+      if (editionError) {
+        console.error(editionError);
+        setError("Impossible d'enregistrer l'édition.");
+        setAdding(null);
+        return;
+      }
+
+      const { data: newBook, error: bookError } = await supabase
+        .from("books")
+        .insert({
+          title,
+          author,
+          isbn,
+          publisher,
+          published_date: publishedDate,
+          series,
+          series_number: volumeNumber,
+          cover_url: null,
+        })
+        .select("id")
+        .single();
+
+      if (bookError || !newBook) {
+        console.error(bookError);
+        setError("Impossible d'enregistrer le livre.");
+        setAdding(null);
+        return;
+      }
+
+      const { error: userBookError } = await supabase
+        .from("user_books")
+        .insert({
+          user_id: user.id,
+          book_id: newBook.id,
+          status: "TO_READ",
+        });
+
+      if (userBookError) {
+        if (userBookError.code === "23505") {
+          setMessage("Ce livre est déjà dans ta collection.");
+        } else {
+          console.error(userBookError);
+          setError("Impossible d'ajouter le livre à ta collection.");
+        }
+        setAdding(null);
+        return;
+      }
+
+      setMessage(`« ${title} » a été ajouté à ta collection.`);
+      setManualTitle("");
+      setManualAuthor("");
+      setManualIsbn("");
+      setManualPublisher("");
+      setManualPublishedDate("");
+      setManualSeries("");
+      setManualVolume("");
+      setManualType("BOOK");
+      setManualOpen(false);
+    } catch (error) {
+      console.error(error);
+      setError("Une erreur est survenue pendant l'ajout manuel.");
+    } finally {
+      setAdding(null);
+    }
+  }
+
+  // =========================================================
   // AJOUTER UN LIVRE
   // =========================================================
 
@@ -638,20 +792,20 @@ useEffect(() => {
   // =========================================================
 
   return (
-    <main className="min-h-screen bg-[#080B18] px-5 py-8 pb-24 text-white">
+    <main className="min-h-screen bg-[#FFF9F2] px-5 py-8 pb-24 text-[#31095A]">
       <div className="mx-auto max-w-4xl">
 
         {/* HEADER */}
 
         <Link
           href="/collection"
-          className="text-sm text-white/50 hover:text-white"
+          className="text-sm text-[#31095A]/50 hover:text-[#31095A]"
         >
           ← Ma collection
         </Link>
 
         <div className="mt-8">
-          <p className="text-sm font-semibold uppercase tracking-widest text-pink-400">
+          <p className="text-sm font-semibold uppercase tracking-widest text-[#F837E2]">
             Biblidex
           </p>
 
@@ -659,7 +813,7 @@ useEffect(() => {
             Ajouter un livre
           </h1>
 
-          <p className="mt-2 text-white/50">
+          <p className="mt-2 text-[#31095A]/50">
             Recherche par titre, auteur ou ISBN.
           </p>
         </div>
@@ -669,10 +823,145 @@ useEffect(() => {
         <button
           type="button"
           onClick={() => setScannerOpen(true)}
-          className="mt-6 w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-bold transition hover:bg-white/10"
+          className="mt-6 w-full rounded-2xl border border-[#31095A]/10 bg-white px-5 py-4 text-sm font-bold transition hover:bg-white"
         >
           Scanner le code-barres
         </button>
+
+        <button
+          type="button"
+          onClick={() => setManualOpen((open) => !open)}
+          className="mt-3 w-full rounded-2xl border-2 border-[#FECF4C] bg-[#FECF4C] px-5 py-4 text-sm font-black text-[#31095A] transition hover:opacity-90"
+        >
+          {manualOpen ? "− Fermer l'ajout manuel" : "＋ Ajouter manuellement"}
+        </button>
+
+        {manualOpen && (
+          <form
+            onSubmit={addManualBook}
+            className="mt-4 rounded-3xl border border-[#31095A]/10 bg-white p-5"
+          >
+            <div className="mb-5">
+              <h2 className="text-xl font-black">Ajout manuel</h2>
+              <p className="mt-1 text-sm text-[#31095A]/50">
+                Ajoute un livre même s'il n'est pas trouvé dans nos sources.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  Titre *
+                </span>
+                <input
+                  required
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="Titre du livre"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#F837E2]"
+                />
+              </label>
+
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  Auteur
+                </span>
+                <input
+                  value={manualAuthor}
+                  onChange={(e) => setManualAuthor(e.target.value)}
+                  placeholder="Auteur"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#F837E2]"
+                />
+              </label>
+
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  ISBN
+                </span>
+                <input
+                  value={manualIsbn}
+                  onChange={(e) => setManualIsbn(e.target.value)}
+                  placeholder="Optionnel"
+                  inputMode="numeric"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#F837E2]"
+                />
+              </label>
+
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  Type
+                </span>
+                <select
+                  value={manualType}
+                  onChange={(e) => setManualType(e.target.value)}
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none"
+                >
+                  <option value="BOOK">Livre</option>
+                  <option value="MANGA">Manga</option>
+                  <option value="COMIC">Comic</option>
+                  <option value="GRAPHIC_NOVEL">Roman graphique</option>
+                </select>
+              </label>
+
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  Éditeur
+                </span>
+                <input
+                  value={manualPublisher}
+                  onChange={(e) => setManualPublisher(e.target.value)}
+                  placeholder="Éditeur"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#F837E2]"
+                />
+              </label>
+
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  Date de publication
+                </span>
+                <input
+                  value={manualPublishedDate}
+                  onChange={(e) => setManualPublishedDate(e.target.value)}
+                  placeholder="Ex. 2026"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#F837E2]"
+                />
+              </label>
+
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  Série
+                </span>
+                <input
+                  value={manualSeries}
+                  onChange={(e) => setManualSeries(e.target.value)}
+                  placeholder="Optionnel"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#F837E2]"
+                />
+              </label>
+
+              <label>
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-[#31095A]/50">
+                  Tome
+                </span>
+                <input
+                  value={manualVolume}
+                  onChange={(e) => setManualVolume(e.target.value)}
+                  placeholder="Ex. 1"
+                  inputMode="numeric"
+                  className="w-full rounded-2xl border border-[#31095A]/10 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#F837E2]"
+                />
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={adding === "manual"}
+              className="mt-5 w-full rounded-2xl bg-[#31095A] px-5 py-4 font-black text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              {adding === "manual" ? "Ajout en cours..." : "Ajouter à ma collection"}
+            </button>
+          </form>
+        )}
 
         {/* SEARCH */}
 
@@ -688,13 +977,13 @@ useEffect(() => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Dune, Frank Herbert, 9782070368228..."
-            className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none placeholder:text-white/30 focus:border-pink-400"
+            className="flex-1 rounded-2xl border border-[#31095A]/10 bg-white px-5 py-4 text-[#31095A] outline-none placeholder:text-[#31095A]/30 focus:border-pink-400"
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="rounded-2xl bg-gradient-to-r from-orange-400 via-pink-500 to-violet-500 px-7 py-4 font-bold transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-2xl bg-[#FECF4C] text-[#31095A] px-7 py-4 font-bold transition hover:opacity-90 disabled:opacity-50"
           >
             {loading ? "Recherche..." : "Rechercher"}
           </button>
@@ -718,7 +1007,7 @@ useEffect(() => {
 
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
-            <p className="text-sm font-semibold text-white/50">
+            <p className="text-sm font-semibold text-[#31095A]/50">
               {results.length} résultat
               {results.length > 1 ? "s" : ""}
             </p>
@@ -726,7 +1015,7 @@ useEffect(() => {
             {results.map((book) => (
               <article
                 key={`${book.isbn}-${book.title}-${book.publisher}-${book.publishedDate}`}
-                className="flex gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10"
+                className="flex gap-4 rounded-3xl border border-[#31095A]/10 bg-white p-4 transition hover:bg-white"
               >
                 {/* COVER */}
 
@@ -751,31 +1040,31 @@ useEffect(() => {
                     {book.title}
                   </h2>
 {book.subtitle && (
-  <p className="text-sm text-white/50">
+  <p className="text-sm text-[#31095A]/50">
     {book.subtitle}
   </p>
 )}
 
 {book.series && (
-  <p className="text-xs text-white/40">
+  <p className="text-xs text-[#31095A]/40">
     {book.series}
     {book.volumeNumber
       ? ` · Tome ${book.volumeNumber}`
       : ""}
   </p>
 )}
-                  <p className="mt-1 text-sm text-white/60">
+                  <p className="mt-1 text-sm text-[#31095A]/60">
                     {book.author}
                   </p>
 
                   {book.publishedDate && (
-                    <p className="mt-2 text-xs text-white/40">
+                    <p className="mt-2 text-xs text-[#31095A]/40">
                       {book.publishedDate}
                     </p>
                   )}
 
                   {book.isbn && (
-                    <p className="mt-1 text-xs text-white/30">
+                    <p className="mt-1 text-xs text-[#31095A]/30">
                       ISBN {book.isbn}
                     </p>
                   )}
@@ -799,14 +1088,14 @@ useEffect(() => {
         {/* EMPTY STATE */}
 
         {!loading && results.length === 0 && !message && !error && (
-          <div className="mt-12 rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
+          <div className="mt-12 rounded-3xl border border-[#31095A]/10 bg-white p-10 text-center">
             <div className="text-5xl">🔎</div>
 
             <h2 className="mt-4 text-xl font-bold">
               Quel livre cherches-tu ?
             </h2>
 
-            <p className="mt-2 text-sm text-white/40">
+            <p className="mt-2 text-sm text-[#31095A]/40">
               Essaie un titre, un auteur ou un ISBN.
             </p>
           </div>

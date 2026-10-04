@@ -1,8 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FFF9F2;
+  --foreground: #31095A;
+
+  --biblidex-purple: #31095A;
+  --biblidex-yellow: #FECF4C;
+  --biblidex-pink: #F837E2;
+  --biblidex-orange: #FFAA5F;
+  --biblidex-violet: #5A0FA8;
+  --biblidex-dark: #090B18;
+  --biblidex-light: #FFF9F2;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 }
 
 @theme inline {
@@ -12,21 +35,59 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
+  min-height: 100%;
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-/* =========================================================
-   BIBLIDEX BRAND
-   ========================================================= */
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--biblidex-pink);
+  outline-offset: 2px;
+}
+
+/* Biblidex shell helpers */
+.biblidex-page {
+  min-height: 100dvh;
+  padding-bottom: 96px;
+}
+
+.biblidex-container {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
 
 .biblidex-logo {
   display: block;
@@ -54,4 +115,33 @@ body {
   height: 3.5rem;
   width: auto;
   object-fit: contain;
+}
+
+::selection {
+  background: var(--biblidex-yellow);
+  color: var(--biblidex-purple);
+}
+
+@media (min-width: 768px) {
+  .biblidex-container {
+    padding-inline: 24px;
+  }
+
+  .biblidex-page {
+    padding-bottom: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

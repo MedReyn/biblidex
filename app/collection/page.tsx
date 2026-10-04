@@ -3,51 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "../lib/supabase/client";
+import BookCard from "../components/books/BookCard";
+import BookCover from "../components/books/BookCover";
+import Card from "../components/ui/Card";
+import EmptyState from "../components/ui/EmptyState";
 
-type FilterStatus =
-  | "ALL"
-  | "TO_READ"
-  | "READING"
-  | "READ"
-  | "ABANDONED";
-
-type Book = {
-  id: number;
-  title: string;
-  author: string | null;
-  isbn: string | null;
-  cover_url: string | null;
-  series: string | null;
-  series_number: number | null;
-};
-
-type UserBook = {
-  id: number;
-  status: string;
-  rating: number | null;
-  books: Book | null;
-};
-
-type SeriesGroup = {
-  name: string;
-  books: UserBook[];
-};
+type FilterStatus = "ALL" | "TO_READ" | "READING" | "READ" | "ABANDONED";
+type Book = { id: number; title: string; author: string | null; isbn: string | null; cover_url: string | null; series: string | null; series_number: number | null };
+type UserBook = { id: number; status: string; rating: number | null; books: Book | null };
+type SeriesGroup = { name: string; books: UserBook[] };
 
 export default function CollectionPage() {
   const supabase = createClient();
-
   const [userBooks, setUserBooks] = useState<UserBook[]>([]);
-  const [activeFilter, setActiveFilter] =
-    useState<FilterStatus>("ALL");
+  const [activeFilter, setActiveFilter] = useState<FilterStatus>("ALL");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadCollection() {
       setLoading(true);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
         setUserBooks([]);
@@ -58,416 +33,163 @@ export default function CollectionPage() {
       const { data, error } = await supabase
         .from("user_books")
         .select(`
-          id,
-          status,
-          rating,
-          books (
-            id,
-            title,
-            author,
-            isbn,
-            cover_url,
-            series,
-            series_number
-          )
+          id, status, rating,
+          books (id, title, author, isbn, cover_url, series, series_number)
         `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error(
-          "Erreur chargement collection :",
-          error
-        );
+        console.error("Erreur chargement collection :", error);
         setUserBooks([]);
-        setLoading(false);
-        return;
+      } else {
+        const validBooks = ((data as unknown as UserBook[]) || []).filter((item) => item.books !== null);
+        setUserBooks(validBooks);
       }
-
-      const validBooks =
-        ((data as unknown as UserBook[]) || []).filter(
-          (item) => item.books !== null
-        );
-
-      setUserBooks(validBooks);
       setLoading(false);
     }
 
     loadCollection();
   }, []);
 
-  const filteredBooks = useMemo(() => {
-    if (activeFilter === "ALL") {
-      return userBooks;
-    }
+  const filteredBooks = useMemo(
+    () => activeFilter === "ALL" ? userBooks : userBooks.filter((item) => item.status === activeFilter),
+    [userBooks, activeFilter]
+  );
 
-    return userBooks.filter(
-      (item) => item.status === activeFilter
-    );
-  }, [userBooks, activeFilter]);
-
-  /*
-   * On regroupe les livres par série.
-   *
-   * Une carte de série n'est affichée que si au moins
-   * 2 tomes de cette série sont présents dans le filtre actuel.
-   */
   const seriesGroups = useMemo<SeriesGroup[]>(() => {
     const groups = new Map<string, UserBook[]>();
-
     filteredBooks.forEach((item) => {
       const series = item.books?.series?.trim();
-
-      if (!series) {
-        return;
-      }
-
+      if (!series) return;
       const key = series.toLowerCase();
-
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-
+      if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(item);
     });
 
     return Array.from(groups.entries())
       .filter(([, books]) => books.length >= 2)
-      .map(([key, books]) => {
-        const sortedBooks = [...books].sort(
-          (a, b) =>
-            (a.books?.series_number ?? 9999) -
-            (b.books?.series_number ?? 9999)
-        );
-
-        return {
-          name:
-            sortedBooks[0].books?.series?.trim() || key,
-          books: sortedBooks,
-        };
-      })
-      .sort((a, b) =>
-        a.name.localeCompare(b.name)
-      );
+      .map(([key, books]) => ({
+        name: [...books].sort((a, b) => (a.books?.series_number ?? 9999) - (b.books?.series_number ?? 9999))[0].books?.series?.trim() || key,
+        books: [...books].sort((a, b) => (a.books?.series_number ?? 9999) - (b.books?.series_number ?? 9999)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredBooks]);
 
-  /*
-   * Les livres appartenant à une série affichée sont
-   * retirés de la grille individuelle.
-   */
   const seriesBookIds = useMemo(() => {
     const ids = new Set<number>();
-
-    seriesGroups.forEach((series) => {
-      series.books.forEach((item) => {
-        if (item.books) {
-          ids.add(item.books.id);
-        }
-      });
-    });
-
+    seriesGroups.forEach((series) => series.books.forEach((item) => item.books && ids.add(item.books.id)));
     return ids;
   }, [seriesGroups]);
 
-  const individualBooks = useMemo(() => {
-    return filteredBooks.filter((item) => {
-      if (!item.books) {
-        return false;
-      }
+  const individualBooks = useMemo(
+    () => filteredBooks.filter((item) => item.books && !seriesBookIds.has(item.books.id)),
+    [filteredBooks, seriesBookIds]
+  );
 
-      return !seriesBookIds.has(item.books.id);
-    });
-  }, [filteredBooks, seriesBookIds]);
+  const stats = useMemo(() => ({
+    total: userBooks.length,
+    read: userBooks.filter((item) => item.status === "READ").length,
+    reading: userBooks.filter((item) => item.status === "READING").length,
+    toRead: userBooks.filter((item) => item.status === "TO_READ").length,
+    abandoned: userBooks.filter((item) => item.status === "ABANDONED").length,
+  }), [userBooks]);
 
-  const stats = useMemo(() => {
-    return {
-      total: userBooks.length,
-      read: userBooks.filter(
-        (item) => item.status === "READ"
-      ).length,
-      reading: userBooks.filter(
-        (item) => item.status === "READING"
-      ).length,
-      toRead: userBooks.filter(
-        (item) => item.status === "TO_READ"
-      ).length,
-      abandoned: userBooks.filter(
-        (item) => item.status === "ABANDONED"
-      ).length,
-    };
-  }, [userBooks]);
-
-  const filters: {
-    key: FilterStatus;
-    label: string;
-    count: number;
-  }[] = [
-    {
-      key: "ALL",
-      label: "Tous",
-      count: stats.total,
-    },
-    {
-      key: "TO_READ",
-      label: "À lire",
-      count: stats.toRead,
-    },
-    {
-      key: "READING",
-      label: "En cours",
-      count: stats.reading,
-    },
-    {
-      key: "READ",
-      label: "Lus",
-      count: stats.read,
-    },
-    {
-      key: "ABANDONED",
-      label: "Abandonnés",
-      count: stats.abandoned,
-    },
+  const filters = [
+    { key: "ALL" as const, label: "Tous", count: stats.total },
+    { key: "TO_READ" as const, label: "À lire", count: stats.toRead },
+    { key: "READING" as const, label: "En cours", count: stats.reading },
+    { key: "READ" as const, label: "Lus", count: stats.read },
+    { key: "ABANDONED" as const, label: "Abandonnés", count: stats.abandoned },
   ];
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0f0f14] px-6 py-10 text-white">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-white/60">
-            Chargement de ta collection...
-          </p>
+      <main className="biblidex-page">
+        <div className="biblidex-container pt-8">
+          <div className="h-8 w-44 animate-pulse rounded-lg bg-[#31095A]/10" />
+          <div className="mt-3 h-4 w-64 animate-pulse rounded bg-[#31095A]/5" />
+          <div className="mt-8 grid grid-cols-2 gap-3">
+            {[1,2,3,4].map((i) => <div key={i} className="h-24 animate-pulse rounded-[20px] bg-[#31095A]/5" />)}
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0f0f14] px-6 py-10 text-white">
-      <div className="mx-auto max-w-7xl">
-        {/* HEADER */}
-        <header className="mb-10">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 text-sm font-medium uppercase tracking-widest text-white/40">
-                Biblidex
-              </p>
-
-              <h1 className="text-4xl font-bold">
-                Ma collection
-              </h1>
-
-              <p className="mt-2 text-white/50">
-                {stats.total}{" "}
-                {stats.total > 1 ? "livres" : "livre"} dans ta
-                bibliothèque
-              </p>
-            </div>
-
-            <Link
-              href="/add"
-              className="inline-flex w-fit items-center rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-white/90"
-            >
-              + Ajouter un livre
-            </Link>
+    <main className="biblidex-page">
+      <div className="biblidex-container pt-5 md:pt-8">
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#31095A]/45">Bibliothèque</p>
+            <h1 className="mt-1 text-3xl font-black tracking-tight">Ma collection</h1>
+            <p className="mt-1 text-sm text-[#31095A]/50">{stats.total} {stats.total > 1 ? "livres" : "livre"} dans ton Biblidex</p>
           </div>
+          <Link href="/add" className="flex h-11 shrink-0 items-center rounded-[14px] bg-[#FECF4C] px-4 text-sm font-black text-[#31095A] shadow-sm">+ Ajouter</Link>
         </header>
 
-        {/* STATS */}
-        <section className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              Total
-            </p>
-            <p className="mt-1 text-3xl font-bold">
-              {stats.total}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              Lus
-            </p>
-            <p className="mt-1 text-3xl font-bold">
-              {stats.read}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              En cours
-            </p>
-            <p className="mt-1 text-3xl font-bold">
-              {stats.reading}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-white/40">
-              À lire
-            </p>
-            <p className="mt-1 text-3xl font-bold">
-              {stats.toRead}
-            </p>
-          </div>
+        <section className="mt-6 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <MiniStat label="Total" value={stats.total} />
+          <MiniStat label="Lus" value={stats.read} />
+          <MiniStat label="En cours" value={stats.reading} />
+          <MiniStat label="À lire" value={stats.toRead} />
         </section>
 
-        {/* FILTERS */}
-        <div className="mb-10 flex flex-wrap gap-2">
-          {filters.map((filter) => {
-            const active =
-              activeFilter === filter.key;
-
-            return (
-              <button
-                key={filter.key}
-                type="button"
-                onClick={() =>
-                  setActiveFilter(filter.key)
-                }
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-white text-black"
-                    : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {filter.label}
-                <span
-                  className={`ml-2 ${
-                    active
-                      ? "text-black/50"
-                      : "text-white/30"
-                  }`}
+        <div className="-mx-4 mt-6 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:px-0">
+          <div className="flex w-max gap-2">
+            {filters.map((filter) => {
+              const active = activeFilter === filter.key;
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => setActiveFilter(filter.key)}
+                  className={`min-h-10 rounded-full px-4 text-sm font-bold transition ${active ? "bg-[#31095A] text-white" : "border border-[#31095A]/10 bg-white text-[#31095A]/60"}`}
                 >
-                  {filter.count}
-                </span>
-              </button>
-            );
-          })}
+                  {filter.label}<span className={`ml-1.5 ${active ? "text-white/60" : "text-[#31095A]/35"}`}>{filter.count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* SERIES */}
         {seriesGroups.length > 0 && (
-          <section className="mb-12">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">
-                Séries
-              </h2>
-
-              <span className="text-sm text-white/40">
-                {seriesGroups.length}{" "}
-                {seriesGroups.length > 1
-                  ? "séries"
-                  : "série"}
-              </span>
+          <section className="mt-8">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-black">Séries</h2>
+              <span className="text-xs font-semibold text-[#31095A]/40">{seriesGroups.length} {seriesGroups.length > 1 ? "séries" : "série"}</span>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="flex gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-2 md:overflow-visible">
               {seriesGroups.map((series) => {
-                const readCount =
-                  series.books.filter(
-                    (item) => item.status === "READ"
-                  ).length;
-
-                const progress =
-                  series.books.length > 0
-                    ? Math.round(
-                        (readCount /
-                          series.books.length) *
-                          100
-                      )
-                    : 0;
-
+                const readCount = series.books.filter((item) => item.status === "READ").length;
+                const progress = Math.round((readCount / series.books.length) * 100);
                 return (
                   <Link
                     key={series.name}
-                    href={`/series/${encodeURIComponent(
-                      series.name
-                    )}`}
-                    className="block overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-1 hover:bg-white/[0.08]"
+                    href={`/series/${encodeURIComponent(series.name)}`}
+                    className="w-[300px] shrink-0 rounded-[20px] border border-[#31095A]/10 bg-white p-4 shadow-[0_4px_20px_rgba(49,9,90,0.05)] transition hover:-translate-y-0.5 md:w-auto"
                   >
-                    <div className="mb-4 flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-xl font-bold">
-                          {series.name}
-                        </h3>
-
-                        <p className="mt-1 text-sm text-white/40">
-                          {series.books.length}{" "}
-                          {series.books.length > 1
-                            ? "tomes"
-                            : "tome"}
-                        </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-base font-black">{series.name}</h3>
+                        <p className="mt-1 text-xs text-[#31095A]/45">{series.books.length} tomes · {readCount} lus</p>
                       </div>
-
-                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/60">
-                        {readCount}/
-                        {series.books.length} lus
-                      </span>
+                      <span className="shrink-0 rounded-full bg-[#FECF4C] px-2.5 py-1 text-[11px] font-black text-[#31095A]">{progress}%</span>
                     </div>
-
-                    {/* COVERS */}
-                    <div className="mb-5 flex gap-3 overflow-hidden">
-                      {series.books
-                        .slice(0, 5)
-                        .map((item) => {
-                          if (!item.books) {
-                            return null;
-                          }
-
-                          return (
-                            <div
-                              key={item.id}
-                              className="relative h-32 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-white/5"
-                            >
-                              {item.books.cover_url ? (
-                                <img
-                                  src={
-                                    item.books.cover_url
-                                  }
-                                  alt={item.books.title}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center p-2 text-center text-xs text-white/30">
-                                  Pas de couverture
-                                </div>
-                              )}
-
-                              {item.books.series_number !==
-                                null && (
-                                <div className="absolute bottom-1 left-1 rounded-md bg-black/80 px-1.5 py-0.5 text-[10px] font-bold">
-                                  T.
-                                  {
-                                    item.books
-                                      .series_number
-                                  }
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                    <div className="mt-4 flex gap-2 overflow-hidden">
+                      {series.books.slice(0, 5).map((item) => item.books && (
+                        <div key={item.id} className="relative h-28 w-[74px] shrink-0">
+                          <BookCover src={item.books.cover_url} alt={item.books.title} size="sm" />
+                          {item.books.series_number !== null && (
+                            <span className="absolute bottom-1 left-1 rounded bg-[#31095A] px-1.5 py-0.5 text-[9px] font-black text-white">T.{item.books.series_number}</span>
+                          )}
+                        </div>
+                      ))}
                     </div>
-
-                    {/* PROGRESS */}
-                    <div>
-                      <div className="mb-2 flex justify-between text-xs text-white/40">
-                        <span>
-                          Progression
-                        </span>
-
-                        <span>
-                          {progress}%
-                        </span>
-                      </div>
-
-                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                        <div
-                          className="h-full rounded-full bg-white transition-all"
-                          style={{
-                            width: `${progress}%`,
-                          }}
-                        />
-                      </div>
+                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#31095A]/10">
+                      <div className="h-full rounded-full bg-[#F837E2]" style={{ width: `${progress}%` }} />
                     </div>
                   </Link>
                 );
@@ -476,107 +198,33 @@ export default function CollectionPage() {
           </section>
         )}
 
-        {/* BOOKS */}
-        <section>
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">
-              {seriesGroups.length > 0
-                ? "Livres"
-                : "Ma bibliothèque"}
-            </h2>
-
-            <span className="text-sm text-white/40">
-              {individualBooks.length}{" "}
-              {individualBooks.length > 1
-                ? "livres"
-                : "livre"}
-            </span>
+        <section className="mt-8 pb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-black">{seriesGroups.length > 0 ? "Autres livres" : "Mes livres"}</h2>
+            <span className="text-xs font-semibold text-[#31095A]/40">{individualBooks.length}</span>
           </div>
 
           {individualBooks.length === 0 ? (
-            <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-16 text-center">
-              <div className="mb-4 text-5xl">
-                📚
-              </div>
-
-              <h3 className="text-xl font-semibold">
-                Aucun livre à afficher
-              </h3>
-
-              <p className="mt-2 text-white/40">
-                Ajoute des livres à ta collection pour
-                les retrouver ici.
-              </p>
-
-              <Link
-                href="/add"
-                className="mt-6 inline-flex rounded-xl bg-white px-5 py-3 font-semibold text-black"
-              >
-                Ajouter un livre
-              </Link>
-            </div>
+            <EmptyState
+              title={activeFilter === "ALL" ? "Ta collection est vide" : "Aucun livre ici"}
+              description={activeFilter === "ALL" ? "Ajoute des livres pour construire ta bibliothèque." : "Essaie un autre filtre ou ajoute un nouveau livre."}
+              action="Ajouter un livre"
+              href="/add"
+            />
           ) : (
-            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {individualBooks.map((item) => {
-                if (!item.books) {
-                  return null;
-                }
-
-                const book = item.books;
-
+                if (!item.books) return null;
                 return (
-                  <Link
+                  <BookCard
                     key={item.id}
-                    href={`/book/${book.id}`}
-                    className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-1 hover:bg-white/10"
-                  >
-                    <div className="relative aspect-[2/3] overflow-hidden bg-white/5">
-                      {book.cover_url ? (
-                        <img
-                          src={book.cover_url}
-                          alt={book.title}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center p-4 text-center text-sm text-white/30">
-                          Pas de couverture
-                        </div>
-                      )}
-
-                      <div className="absolute bottom-3 left-3 rounded-full bg-black/80 px-3 py-1 text-xs backdrop-blur">
-                        {item.status === "READ"
-                          ? "Lu"
-                          : item.status ===
-                              "READING"
-                            ? "En cours"
-                            : item.status ===
-                                "TO_READ"
-                              ? "À lire"
-                              : "Abandonné"}
-                      </div>
-                    </div>
-
-                    <div className="p-4">
-                      <h3 className="line-clamp-2 font-semibold">
-                        {book.title}
-                      </h3>
-
-                      {book.author && (
-                        <p className="mt-1 line-clamp-1 text-sm text-white/40">
-                          {book.author}
-                        </p>
-                      )}
-
-                      {book.series && (
-                        <p className="mt-2 line-clamp-1 text-xs text-white/30">
-                          {book.series}
-                          {book.series_number !==
-                            null &&
-                            ` · Tome ${book.series_number}`}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
+                    href={`/book/${item.books.id}`}
+                    title={item.books.title}
+                    author={item.books.author}
+                    coverUrl={item.books.cover_url}
+                    status={item.status}
+                    meta={item.books.series ? `${item.books.series}${item.books.series_number !== null ? ` · T.${item.books.series_number}` : ""}` : null}
+                  />
                 );
               })}
             </div>
@@ -584,5 +232,14 @@ export default function CollectionPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <Card className="p-3.5">
+      <p className="text-[11px] font-bold text-[#31095A]/45">{label}</p>
+      <p className="mt-1 text-2xl font-black">{value}</p>
+    </Card>
   );
 }

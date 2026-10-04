@@ -465,14 +465,14 @@ export default function ProfilePage() {
   );
 
   return (
-    <main className="min-h-screen bg-[#faf7f2] px-4 py-8 text-[#31095a]">
+    <main className="min-h-screen bg-[#FFF9F2] px-4 py-8 text-[#31095A]">
       <div className="mx-auto max-w-5xl">
         {/* HEADER */}
         <div className="mb-8 flex items-center justify-between">
           <div>
             <Link
               href="/"
-              className="text-sm font-semibold text-[#31095a]/70 hover:text-[#31095a]"
+              className="text-sm font-semibold text-[#31095A]/70 hover:text-[#31095A]"
             >
               ← Retour à l'accueil
             </Link>
@@ -484,7 +484,7 @@ export default function ProfilePage() {
 
           <button
             onClick={logout}
-            className="rounded-xl border border-[#31095a]/15 bg-white px-4 py-2 text-sm font-semibold hover:bg-[#31095a]/5"
+            className="rounded-xl border border-[#31095A]/15 bg-white px-4 py-2 text-sm font-semibold hover:bg-[#31095A]/5"
           >
             Déconnexion
           </button>
@@ -505,9 +505,9 @@ export default function ProfilePage() {
 
         {/* PROFIL */}
         {profile && (
-          <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <section className="rounded-[20px] border border-[#31095A]/10 bg-white p-5 shadow-[0_4px_20px_rgba(49,9,90,0.05)]">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] text-4xl font-black text-white">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] text-4xl font-black text-[#31095A]">
                 {profile.avatar_url ? (
                   <img
                     src={profile.avatar_url}
@@ -527,14 +527,14 @@ export default function ProfilePage() {
                       onChange={(event) =>
                         setNewUsername(event.target.value)
                       }
-                      className="rounded-xl border border-[#31095a]/15 px-4 py-3 outline-none focus:border-[#31095a]"
+                      className="rounded-xl border border-[#31095A]/15 px-4 py-3 outline-none focus:border-[#31095A]"
                       placeholder="Nouveau pseudo"
                     />
 
                     <button
                       onClick={saveUsername}
                       disabled={saving}
-                      className="rounded-xl bg-[#31095a] px-5 py-3 font-bold text-white disabled:opacity-50"
+                      className="rounded-xl bg-[#31095A] px-5 py-3 font-bold text-[#31095A] disabled:opacity-50"
                     >
                       {saving ? "Enregistrement..." : "Enregistrer"}
                     </button>
@@ -542,7 +542,7 @@ export default function ProfilePage() {
                     <button
                       onClick={cancelEdit}
                       disabled={saving}
-                      className="rounded-xl border border-[#31095a]/15 px-5 py-3 font-semibold"
+                      className="rounded-xl border border-[#31095A]/15 px-5 py-3 font-semibold"
                     >
                       Annuler
                     </button>
@@ -559,14 +559,14 @@ export default function ProfilePage() {
                         setMessage("");
                         setError("");
                       }}
-                      className="rounded-lg border border-[#31095a]/15 px-3 py-1.5 text-sm font-semibold hover:bg-[#31095a]/5"
+                      className="rounded-lg border border-[#31095A]/15 px-3 py-1.5 text-sm font-semibold hover:bg-[#31095A]/5"
                     >
                       Modifier
                     </button>
                   </div>
                 )}
 
-                <p className="mt-2 text-sm text-[#31095a]/60">
+                <p className="mt-2 text-sm text-[#31095A]/60">
                   Ton profil Biblidex
                 </p>
               </div>
@@ -594,12 +594,12 @@ export default function ProfilePage() {
         </section>
 
         {/* RECHERCHE UTILISATEURS */}
-        <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+        <section className="mt-6 rounded-[20px] border border-[#31095A]/10 bg-white p-5 shadow-[0_4px_20px_rgba(49,9,90,0.05)]">
           <h2 className="text-xl font-black">
             Trouver des lecteurs
           </h2>
 
-          <p className="mt-1 text-sm text-[#31095a]/60">
+          <p className="mt-1 text-sm text-[#31095A]/60">
             Recherche un utilisateur par pseudo.
           </p>
 
@@ -619,13 +619,13 @@ export default function ProfilePage() {
                 }
               }}
               placeholder="Ex. MR"
-              className="flex-1 rounded-xl border border-[#31095a]/15 bg-[#faf7f2] px-4 py-3 outline-none focus:border-[#31095a]"
+              className="flex-1 rounded-xl border border-[#31095A]/15 bg-[#FFF9F2] px-4 py-3 outline-none focus:border-[#31095A]"
             />
 
             <button
               onClick={handleSearchUsers}
               disabled={searching}
-              className="rounded-xl bg-[#31095a] px-6 py-3 font-bold text-white disabled:opacity-50"
+              className="rounded-xl bg-[#31095A] px-6 py-3 font-bold text-[#31095A] disabled:opacity-50"
             >
               {searching ? "Recherche..." : "Rechercher"}
             </button>
@@ -641,10 +641,10 @@ export default function ProfilePage() {
                 return (
                   <div
                     key={result.id}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-[#31095a]/10 p-4"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-[#31095A]/10 p-4"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-[#31095A]">
                         {result.avatar_url ? (
                           <img
                             src={result.avatar_url}
@@ -679,7 +679,7 @@ export default function ProfilePage() {
                           sendFriendRequest(result.id)
                         }
                         disabled={sendingRequest === result.id}
-                        className="rounded-xl bg-[#31095a] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                        className="rounded-xl bg-[#31095A] px-4 py-2 text-sm font-bold text-[#31095A] disabled:opacity-50"
                       >
                         {sendingRequest === result.id
                           ? "Envoi..."
@@ -695,24 +695,24 @@ export default function ProfilePage() {
           {searchUsername.trim().length >= 2 &&
             !searching &&
             searchResults.length === 0 && (
-              <p className="mt-5 text-sm text-[#31095a]/60">
+              <p className="mt-5 text-sm text-[#31095A]/60">
                 Aucun utilisateur trouvé.
               </p>
             )}
         </section>
 
         {/* DEMANDES REÇUES */}
-        <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+        <section className="mt-6 rounded-[20px] border border-[#31095A]/10 bg-white p-5 shadow-[0_4px_20px_rgba(49,9,90,0.05)]">
           <h2 className="text-xl font-black">
             Demandes d'ami
           </h2>
 
           {loadingFriendships ? (
-            <p className="mt-4 text-sm text-[#31095a]/60">
+            <p className="mt-4 text-sm text-[#31095A]/60">
               Chargement...
             </p>
           ) : receivedRequests.length === 0 ? (
-            <p className="mt-4 text-sm text-[#31095a]/60">
+            <p className="mt-4 text-sm text-[#31095A]/60">
               Aucune demande en attente.
             </p>
           ) : (
@@ -720,10 +720,10 @@ export default function ProfilePage() {
               {receivedRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-[#31095a]/10 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-4 rounded-2xl border border-[#31095A]/10 p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-[#31095A]">
                       {request.profile?.avatar_url ? (
                         <img
                           src={request.profile.avatar_url}
@@ -743,7 +743,7 @@ export default function ProfilePage() {
                           "Utilisateur"}
                       </p>
 
-                      <p className="text-sm text-[#31095a]/60">
+                      <p className="text-sm text-[#31095A]/60">
                         souhaite vous ajouter
                       </p>
                     </div>
@@ -758,7 +758,7 @@ export default function ProfilePage() {
                         )
                       }
                       disabled={processingRequest === request.id}
-                      className="rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                      className="rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-[#31095A] disabled:opacity-50"
                     >
                       Accepter
                     </button>
@@ -783,13 +783,13 @@ export default function ProfilePage() {
         </section>
 
         {/* AMIS */}
-        <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+        <section className="mt-6 rounded-[20px] border border-[#31095A]/10 bg-white p-5 shadow-[0_4px_20px_rgba(49,9,90,0.05)]">
           <h2 className="text-xl font-black">
             Mes amis
           </h2>
 
           {acceptedFriends.length === 0 ? (
-            <p className="mt-4 text-sm text-[#31095a]/60">
+            <p className="mt-4 text-sm text-[#31095A]/60">
               Tu n'as pas encore d'ami sur Biblidex.
             </p>
           ) : (
@@ -797,9 +797,9 @@ export default function ProfilePage() {
               {acceptedFriends.map((friendship) => (
                 <div
                   key={friendship.id}
-                  className="flex items-center gap-3 rounded-2xl border border-[#31095a]/10 p-4"
+                  className="flex items-center gap-3 rounded-2xl border border-[#31095A]/10 p-4"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-[#31095A]">
                     {friendship.profile?.avatar_url ? (
                       <img
                         src={friendship.profile.avatar_url}
@@ -831,7 +831,7 @@ export default function ProfilePage() {
 
         {/* DEMANDES ENVOYÉES */}
         {sentRequests.length > 0 && (
-          <section className="mt-6 rounded-3xl bg-white p-6 shadow-sm">
+          <section className="mt-6 rounded-[20px] border border-[#31095A]/10 bg-white p-5 shadow-[0_4px_20px_rgba(49,9,90,0.05)]">
             <h2 className="text-xl font-black">
               Demandes envoyées
             </h2>
@@ -840,9 +840,9 @@ export default function ProfilePage() {
               {sentRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="flex items-center gap-3 rounded-2xl border border-[#31095a]/10 p-4"
+                  className="flex items-center gap-3 rounded-2xl border border-[#31095A]/10 p-4"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-white">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#f837e2] font-black text-[#31095A]">
                     {request.profile?.avatar_url ? (
                       <img
                         src={request.profile.avatar_url}
@@ -884,12 +884,12 @@ function StatCard({
   value: number | string;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-[#31095a]/60">
+    <div className="rounded-[20px] border border-[#31095A]/10 bg-white p-4 shadow-sm">
+      <p className="text-sm font-semibold text-[#31095A]/60">
         {label}
       </p>
 
-      <p className="mt-2 text-2xl font-black text-[#31095a]">
+      <p className="mt-2 text-2xl font-black text-[#31095A]">
         {value}
       </p>
     </div>

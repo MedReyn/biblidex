@@ -80,11 +80,11 @@ export default function SearchPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#080B18] px-5 py-8 pb-28 text-white">
+    <main className="min-h-screen bg-[#FFF9F2] px-5 py-8 pb-28 text-[#31095A]">
       <div className="mx-auto max-w-4xl">
 
         {/* HEADER */}
-        <p className="text-sm font-semibold uppercase tracking-widest text-pink-400">
+        <p className="text-sm font-semibold uppercase tracking-widest text-[#F837E2]">
           Biblidex
         </p>
 
@@ -92,7 +92,7 @@ export default function SearchPage() {
           Recherche
         </h1>
 
-        <p className="mt-3 text-white/50">
+        <p className="mt-3 text-[#31095A]/50">
           Trouve un livre, un manga, une BD ou un comic.
         </p>
 
@@ -107,7 +107,7 @@ export default function SearchPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Titre, auteur, ISBN..."
-            className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none placeholder:text-white/30 focus:border-pink-500/50"
+            className="min-w-0 flex-1 rounded-2xl border border-[#31095A]/10 bg-white px-5 py-4 text-[#31095A] outline-none placeholder:text-[#31095A]/30 focus:border-pink-500/50"
           />
 
           <button
@@ -121,7 +121,7 @@ export default function SearchPage() {
 
         {/* ERROR */}
         {error && (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 text-white/60">
+          <div className="mt-6 rounded-2xl border border-[#31095A]/10 bg-white p-5 text-[#31095A]/60">
             {error}
           </div>
         )}
@@ -134,10 +134,10 @@ export default function SearchPage() {
               <Link
                 key={`${book.isbn}-${book.title}-${index}`}
                 href={`/add?isbn=${encodeURIComponent(book.isbn)}`}
-                className="group flex gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10"
+                className="group flex gap-4 rounded-3xl border border-[#31095A]/10 bg-white p-4 transition hover:bg-white"
               >
                 {/* COVER */}
-                <div className="h-32 w-20 shrink-0 overflow-hidden rounded-xl bg-white/10">
+                <div className="h-32 w-20 shrink-0 overflow-hidden rounded-xl bg-white">
                   {book.coverUrl ? (
                     <img
                       src={book.coverUrl}
@@ -145,7 +145,7 @@ export default function SearchPage() {
                       className="h-full w-full object-cover transition group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center px-2 text-center text-xs text-white/30">
+                    <div className="flex h-full items-center justify-center px-2 text-center text-xs text-[#31095A]/30">
                       Pas de couverture
                     </div>
                   )}
@@ -157,17 +157,17 @@ export default function SearchPage() {
                     {book.title}
                   </h2>
 
-                  <p className="mt-2 text-sm text-white/50">
+                  <p className="mt-2 text-sm text-[#31095A]/50">
                     {book.author}
                   </p>
 
                   {book.publishedDate && (
-                    <p className="mt-1 text-xs text-white/30">
+                    <p className="mt-1 text-xs text-[#31095A]/30">
                       {book.publishedDate}
                     </p>
                   )}
 
-                  <div className="mt-4 text-sm font-semibold text-pink-400">
+                  <div className="mt-4 text-sm font-semibold text-[#F837E2]">
   ＋ Ajouter à ma collection
 </div>
                 </div>
@@ -181,18 +181,18 @@ export default function SearchPage() {
         {!loading &&
           !error &&
           results.length === 0 && (
-            <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-8 text-center">
+            <div className="mt-8 rounded-3xl border border-[#31095A]/10 bg-white p-8 text-center">
               <p className="text-lg font-bold">
                 Que cherches-tu ?
               </p>
 
-              <p className="mt-2 text-sm text-white/40">
+              <p className="mt-2 text-sm text-[#31095A]/40">
                 Recherche par titre, auteur ou ISBN.
               </p>
 
               <Link
                 href="/add"
-                className="mt-6 inline-block rounded-2xl bg-gradient-to-r from-orange-400 via-pink-500 to-violet-500 px-6 py-3 font-bold"
+                className="mt-6 inline-block rounded-2xl bg-[#FECF4C] text-[#31095A] px-6 py-3 font-bold"
               >
                 Ajouter un livre
               </Link>
