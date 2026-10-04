@@ -102,7 +102,7 @@ function dedupeResults(results: BookResult[]) {
 }
 
 export default function AddBookPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<BookResult[]>([]);
