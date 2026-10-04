@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import BarcodeScanner from "../components/BarcodeScanner";
 import { createClient } from "../lib/supabase/client";
@@ -289,9 +290,69 @@ export default function AddBookPage() {
         return;
       }
 
-      const { data: existingBook } = isbn
+      // Work + edition remain synchronized with the existing Biblidex data model.
+      const { data: existingWork, error: workSearchError } = await supabase
+        .from("works")
+        .select("id")
+        .eq("title", book.title)
+        .eq("author", book.author)
+        .maybeSingle();
+
+      if (workSearchError) throw workSearchError;
+
+      let workId: string;
+
+      if (existingWork) {
+        workId = existingWork.id;
+      } else {
+        const { data: newWork, error: workInsertError } = await supabase
+          .from("works")
+          .insert({
+            title: book.title,
+            author: book.author,
+            type: book.type,
+            volume_number: book.volumeNumber,
+            cover_url: book.coverUrl,
+          })
+          .select("id")
+          .single();
+
+        if (workInsertError || !newWork) {
+          throw workInsertError ?? new Error("Création de l'œuvre impossible");
+        }
+
+        workId = newWork.id;
+      }
+
+      if (isbn) {
+        const { data: existingEdition, error: editionSearchError } = await supabase
+          .from("editions")
+          .select("id")
+          .eq("isbn", isbn)
+          .maybeSingle();
+
+        if (editionSearchError) throw editionSearchError;
+
+        if (!existingEdition) {
+          const { error: editionInsertError } = await supabase
+            .from("editions")
+            .insert({
+              work_id: workId,
+              isbn,
+              publisher: book.publisher || null,
+              published_date: book.publishedDate || null,
+              cover_url: book.coverUrl,
+            });
+
+          if (editionInsertError) throw editionInsertError;
+        }
+      }
+
+      const { data: existingBook, error: bookSearchError } = isbn
         ? await supabase.from("books").select("id").eq("isbn", isbn).maybeSingle()
-        : { data: null };
+        : { data: null, error: null };
+
+      if (bookSearchError) throw bookSearchError;
 
       let bookId: string;
 
@@ -328,18 +389,14 @@ export default function AddBookPage() {
 
       if (userBookError) {
         if (userBookError.code === "23505") {
-          setAlreadyInCollection((current) => new Set(current).add(isbn));
+          if (isbn) setAlreadyInCollection((current) => new Set(current).add(isbn));
           setMessage("Ce livre est déjà dans ta collection.");
-        } else {
-          throw userBookError;
+          return;
         }
-        return;
+        throw userBookError;
       }
 
-      if (isbn) {
-        setAlreadyInCollection((current) => new Set(current).add(isbn));
-      }
-
+      if (isbn) setAlreadyInCollection((current) => new Set(current).add(isbn));
       setMessage(`« ${book.title} » a été ajouté à ta collection.`);
     } catch (addError) {
       console.error("Erreur ajout :", addError);
@@ -385,9 +442,70 @@ export default function AddBookPage() {
         return;
       }
 
-      const { data: existingBook } = isbn
+      const author = manualAuthor.trim() || "Auteur inconnu";
+      const series = manualSeries.trim() || null;
+
+      const { data: existingWork, error: workSearchError } = await supabase
+        .from("works")
+        .select("id")
+        .eq("title", title)
+        .eq("author", author)
+        .maybeSingle();
+
+      if (workSearchError) throw workSearchError;
+
+      let workId: string;
+
+      if (existingWork) {
+        workId = existingWork.id;
+      } else {
+        const { data: newWork, error: workInsertError } = await supabase
+          .from("works")
+          .insert({
+            title,
+            author,
+            type: manualType,
+            volume_number: volume,
+          })
+          .select("id")
+          .single();
+
+        if (workInsertError || !newWork) {
+          throw workInsertError ?? new Error("Création de l'œuvre impossible");
+        }
+
+        workId = newWork.id;
+      }
+
+      if (isbn) {
+        const { data: existingEdition, error: editionSearchError } = await supabase
+          .from("editions")
+          .select("id")
+          .eq("isbn", isbn)
+          .maybeSingle();
+
+        if (editionSearchError) throw editionSearchError;
+
+        if (!existingEdition) {
+          const { error: editionInsertError } = await supabase
+            .from("editions")
+            .insert({
+              work_id: workId,
+              isbn,
+              publisher: manualPublisher.trim() || null,
+              published_date: manualPublishedDate.trim() || null,
+              cover_url: null,
+            });
+
+          if (editionInsertError) throw editionInsertError;
+        }
+      }
+
+      const { data: existingBook, error: bookSearchError } = isbn
         ? await supabase.from("books").select("id").eq("isbn", isbn).maybeSingle()
-        : { data: null };
+        : { data: null, error: null };
+
+      if (bookSearchError) throw bookSearchError;
 
       let bookId: string;
 
@@ -398,11 +516,11 @@ export default function AddBookPage() {
           .from("books")
           .insert({
             title,
-            author: manualAuthor.trim() || null,
+            author,
             isbn: isbn || null,
             publisher: manualPublisher.trim() || null,
             published_date: manualPublishedDate.trim() || null,
-            series: manualSeries.trim() || null,
+            series,
             series_number: volume,
             cover_url: null,
           })
@@ -425,15 +543,12 @@ export default function AddBookPage() {
       if (userBookError) {
         if (userBookError.code === "23505") {
           setMessage("Ce livre est déjà dans ta collection.");
-        } else {
-          throw userBookError;
+          return;
         }
-        return;
+        throw userBookError;
       }
 
-      if (isbn) {
-        setAlreadyInCollection((current) => new Set(current).add(isbn));
-      }
+      if (isbn) setAlreadyInCollection((current) => new Set(current).add(isbn));
 
       setMessage(`« ${title} » a été ajouté à ta collection.`);
       setManualTitle("");
@@ -702,7 +817,7 @@ function Field({
   className = "",
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
