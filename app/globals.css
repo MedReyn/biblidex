@@ -145,3 +145,84 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Dark product theme — all authenticated Biblidex screens share the auth visual language. */
+.biblidex-app:not(:has(.auth-screen)) {
+  background: #090B18;
+  color: #F8F7FC;
+}
+
+.biblidex-app:not(:has(.auth-screen)) .bg-\[\#FFF9F2\] {
+  background-color: #090B18 !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) .bg-white {
+  background-color: #111426 !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="border-[#31095A]"] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="text-[#31095A]"] {
+  color: #F8F7FC !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="text-[#31095A]/"] {
+  color: rgba(248, 247, 252, 0.55) !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="text-[#080B18]"] {
+  color: #090B18 !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="bg-[#31095A]/"] {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) input,
+.biblidex-app:not(:has(.auth-screen)) select,
+.biblidex-app:not(:has(.auth-screen)) textarea {
+  background-color: #111426;
+  color: #F8F7FC;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.biblidex-app:not(:has(.auth-screen)) input::placeholder,
+.biblidex-app:not(:has(.auth-screen)) textarea::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.biblidex-app:not(:has(.auth-screen)) option {
+  background: #111426;
+  color: #F8F7FC;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="shadow-[0_4px_20px_rgba(49,9,90"] {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Keep brand buttons / navigation accents intact. */
+.biblidex-app:not(:has(.auth-screen)) [class*="bg-[#FECF4C]"] {
+  background-color: #FECF4C !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="bg-[#FECF4C]"][class*="text-[#31095A]"] {
+  color: #31095A !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="bg-[#31095A]"] {
+  background-color: #31095A !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="bg-[#31095A]"][class*="text-white"] {
+  color: #FFFFFF !important;
+}
+
+.biblidex-app:not(:has(.auth-screen)) [class*="text-[#F837E2]"] {
+  color: #F837E2 !important;
+}
