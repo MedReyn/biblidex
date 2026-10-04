@@ -1,5 +1,7 @@
 "use client";
 
+// Keep GitHub → Vercel preview deployment flow active after reconnecting the repository.
+
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
