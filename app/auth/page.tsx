@@ -104,13 +104,20 @@ export default function AuthPage() {
 
         <section className="mt-8 rounded-[28px] bg-white p-5 shadow-[0_18px_50px_rgba(49,9,90,0.14)] sm:p-6">
           <div className="grid grid-cols-2 rounded-[14px] bg-[#FFF9F2] p-1">
-            <button type="button" onClick={() => switchMode("login")} className={mode === "login" ? "rounded-[11px] bg-[#31095A] px-3 py-2.5 text-sm font-extrabold text-white" : "rounded-[11px] px-3 py-2.5 text-sm font-bold text-[#31095A]/55"}>Se connecter</button>
-            <button type="button" onClick={() => switchMode("signup")} className={mode === "signup" ? "rounded-[11px] bg-[#31095A] px-3 py-2.5 text-sm font-extrabold text-white" : "rounded-[11px] px-3 py-2.5 text-sm font-bold text-[#31095A]/55"}>Créer un compte</button>
+            <button type="button" onClick={() => switchMode("login")} className={mode === "login" ? "rounded-[11px] bg-[#31095A] px-3 py-2.5 text-sm font-extrabold text-white shadow-sm" : "rounded-[11px] px-3 py-2.5 text-sm font-bold text-[#31095A]/55"}>Se connecter</button>
+            <button type="button" onClick={() => switchMode("signup")} className={mode === "signup" ? "rounded-[11px] bg-[#31095A] px-3 py-2.5 text-sm font-extrabold text-white shadow-sm" : "rounded-[11px] px-3 py-2.5 text-sm font-bold text-[#31095A]/55"}>Créer un compte</button>
           </div>
 
-          <div className="mt-5 grid gap-3">
-            <SocialButton label="Continuer avec Google" onClick={() => handleSocial("google")} loading={socialLoading === "google"} icon={<GoogleIcon />} />
-            <SocialButton label="Continuer avec Apple" onClick={() => handleSocial("apple")} loading={socialLoading === "apple"} icon={<AppleIcon />} />
+          <div className={mode === "signup" ? "mt-5 rounded-[18px] bg-gradient-to-r from-[#F837E2]/10 to-[#FFAA5F]/15 px-4 py-3" : "mt-5 rounded-[18px] bg-[#FFF9F2] px-4 py-3"}>
+            <p className="text-base font-black text-[#31095A]">{mode === "login" ? "Content de te revoir." : "Prêt à collectionner ?"}</p>
+            <p className="mt-0.5 text-xs font-semibold leading-5 text-[#31095A]/55">
+              {mode === "login" ? "Retrouve ta collection et continue là où tu t’es arrêté." : "Crée ton compte pour commencer ton Pokédex de livres."}
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            <SocialButton label={mode === "login" ? "Continuer avec Google" : "S’inscrire avec Google"} onClick={() => handleSocial("google")} loading={socialLoading === "google"} icon={<GoogleIcon />} />
+            <SocialButton label={mode === "login" ? "Continuer avec Apple" : "S’inscrire avec Apple"} onClick={() => handleSocial("apple")} loading={socialLoading === "apple"} icon={<AppleIcon />} />
           </div>
 
           <div className="my-5 flex items-center gap-3 text-xs font-semibold text-[#31095A]/35">
@@ -119,12 +126,12 @@ export default function AuthPage() {
 
           <form onSubmit={handleSubmit} className="grid gap-4">
             <label className="grid gap-1.5">
-              <span className="text-sm font-bold text-[#31095A]">Adresse e-mail</span>
+              <span className="text-sm font-bold text-[#31095A]">{mode === "login" ? "Adresse e-mail" : "Ton adresse e-mail"}</span>
               <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-12 rounded-[14px] border border-[#31095A]/15 bg-[#FFFDFC] px-4 text-base text-[#31095A] outline-none transition focus:border-[#F837E2] focus:ring-2 focus:ring-[#F837E2]/15" placeholder="toi@exemple.fr" />
             </label>
 
             <label className="grid gap-1.5">
-              <span className="text-sm font-bold text-[#31095A]">Mot de passe</span>
+              <span className="text-sm font-bold text-[#31095A]">{mode === "login" ? "Mot de passe" : "Choisis un mot de passe"}</span>
               <input type="password" required minLength={6} autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} className="min-h-12 rounded-[14px] border border-[#31095A]/15 bg-[#FFFDFC] px-4 text-base text-[#31095A] outline-none transition focus:border-[#F837E2] focus:ring-2 focus:ring-[#F837E2]/15" placeholder="••••••••" />
             </label>
 
@@ -139,12 +146,16 @@ export default function AuthPage() {
             {error && <p role="alert" className="rounded-[12px] bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700">{error}</p>}
             {message && <p role="status" className="rounded-[12px] bg-green-50 px-3 py-2.5 text-sm font-semibold text-green-700">{message}</p>}
 
-            <button type="submit" disabled={loading} className="min-h-12 rounded-[14px] bg-[#FECF4C] px-4 py-3 text-sm font-black text-[#31095A] shadow-sm transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-60">
+            <button type="submit" disabled={loading} className={mode === "signup" ? "min-h-12 rounded-[14px] bg-[#31095A] px-4 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(49,9,90,0.18)] transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-60" : "min-h-12 rounded-[14px] bg-[#FECF4C] px-4 py-3 text-sm font-black text-[#31095A] shadow-sm transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"}>
               {loading ? "Chargement..." : mode === "login" ? "Se connecter" : "Créer mon compte"}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-xs leading-5 text-[#31095A]/45">En continuant, tu acceptes les conditions d’utilisation et la politique de confidentialité de Biblidex.</p>
+          <p className="mt-5 text-center text-xs leading-5 text-[#31095A]/45">
+            {mode === "signup"
+              ? "En créant ton compte, tu acceptes les conditions d’utilisation et la politique de confidentialité de Biblidex."
+              : "En te connectant, tu acceptes les conditions d’utilisation et la politique de confidentialité de Biblidex."}
+          </p>
         </section>
       </div>
     </main>
