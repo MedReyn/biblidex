@@ -71,6 +71,30 @@ export default function AuthPage() {
     router.refresh();
   }
 
+  async function handleForgotPassword() {
+    setError("");
+    setMessage("");
+
+    if (!email) {
+      setError("Renseigne ton adresse e-mail pour recevoir le lien de réinitialisation.");
+      return;
+    }
+
+    setLoading(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/auth/reset-password",
+    });
+
+    if (resetError) {
+      setError(resetError.message);
+      setLoading(false);
+      return;
+    }
+
+    setMessage("Un e-mail de réinitialisation vient de t’être envoyé.");
+    setLoading(false);
+  }
+
   async function handleSocial(provider: "google" | "apple") {
     setSocialLoading(provider);
     setError("");
@@ -142,7 +166,11 @@ export default function AuthPage() {
               </label>
             )}
 
-            {mode === "login" && <button type="button" className="justify-self-end text-xs font-bold text-[#31095A]/55 hover:text-[#31095A]">Mot de passe oublié ?</button>}
+            {mode === "login" && (
+              <button type="button" onClick={handleForgotPassword} disabled={loading} className="justify-self-end text-xs font-bold text-[#31095A]/55 hover:text-[#31095A] disabled:opacity-50">
+                Mot de passe oublié ?
+              </button>
+            )}
             {error && <p role="alert" className="rounded-[12px] bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700">{error}</p>}
             {message && <p role="status" className="rounded-[12px] bg-green-50 px-3 py-2.5 text-sm font-semibold text-green-700">{message}</p>}
 
