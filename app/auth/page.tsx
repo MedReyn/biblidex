@@ -98,7 +98,7 @@ export default function AuthPage() {
             <Image src="/logo/biblidex-owl.png" alt="Biblidex" width={82} height={82} priority className="h-[76px] w-[76px] object-contain" />
           </div>
           <h1 className="mt-5 text-4xl font-black tracking-tight text-[#31095A]">Biblidex.</h1>
-          <p className="mt-1 text-sm font-bold text-[#31095A]/65">Le Pokédex de tes livres.</p>
+          <p className="mt-1 text-sm font-bold text-[#31095A]/65">Le Pokédex de tous les livres.</p>
         </div>
 
         <section className="mt-8 rounded-[28px] bg-white p-5 shadow-[0_18px_50px_rgba(49,9,90,0.14)] sm:p-6">
