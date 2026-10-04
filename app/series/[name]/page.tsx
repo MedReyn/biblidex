@@ -125,9 +125,9 @@ export default function SeriesPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0f0f14] px-6 py-10 text-white">
+      <main className="min-h-screen bg-[#FFF9F2] px-6 py-10 text-[#31095A]">
         <div className="mx-auto max-w-6xl">
-          <p className="text-white/60">
+          <p className="text-[#31095A]/60">
             Chargement de la série...
           </p>
         </div>
@@ -137,11 +137,11 @@ export default function SeriesPage() {
 
   if (books.length === 0) {
     return (
-      <main className="min-h-screen bg-[#0f0f14] px-6 py-10 text-white">
+      <main className="min-h-screen bg-[#FFF9F2] px-6 py-10 text-[#31095A]">
         <div className="mx-auto max-w-6xl">
           <Link
             href="/collection"
-            className="mb-8 inline-flex text-sm text-white/60 transition hover:text-white"
+            className="mb-8 inline-flex text-sm text-[#31095A]/60 transition hover:text-[#31095A]"
           >
             ← Ma collection
           </Link>
@@ -153,7 +153,7 @@ export default function SeriesPage() {
               Série introuvable
             </h1>
 
-            <p className="mb-8 text-white/50">
+            <p className="mb-8 text-[#31095A]/50">
               Aucun tome de cette série n'est présent dans ta
               collection.
             </p>
@@ -171,11 +171,11 @@ export default function SeriesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0f0f14] px-6 py-10 text-white">
+    <main className="min-h-screen bg-[#FFF9F2] px-6 py-10 text-[#31095A]">
       <div className="mx-auto max-w-6xl">
         <Link
           href="/collection"
-          className="mb-8 inline-flex text-sm text-white/60 transition hover:text-white"
+          className="mb-8 inline-flex text-sm text-[#31095A]/60 transition hover:text-[#31095A]"
         >
           ← Ma collection
         </Link>
@@ -189,7 +189,7 @@ export default function SeriesPage() {
             </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-sm text-white/50">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-[#31095A]/50">
             <span>
               {books.length}{" "}
               {books.length > 1 ? "tomes" : "tome"}
@@ -206,7 +206,7 @@ export default function SeriesPage() {
             <span>{progress}%</span>
           </div>
 
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white">
             <div
               className="h-full rounded-full bg-white transition-all"
               style={{
@@ -228,9 +228,9 @@ export default function SeriesPage() {
               <Link
                 key={item.id}
                 href={`/book/${book.id}`}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-1 hover:bg-white/10"
+                className="group overflow-hidden rounded-2xl border border-[#31095A]/10 bg-white transition hover:-translate-y-1 hover:bg-white"
               >
-                <div className="relative aspect-[2/3] overflow-hidden bg-white/5">
+                <div className="relative aspect-[2/3] overflow-hidden bg-white">
                   {book.cover_url ? (
                     <img
                       src={book.cover_url}
@@ -238,7 +238,7 @@ export default function SeriesPage() {
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center p-4 text-center text-sm text-white/40">
+                    <div className="flex h-full items-center justify-center p-4 text-center text-sm text-[#31095A]/40">
                       Pas de couverture
                     </div>
                   )}
@@ -266,7 +266,7 @@ export default function SeriesPage() {
                   </h2>
 
                   {book.author && (
-                    <p className="mt-1 line-clamp-1 text-sm text-white/50">
+                    <p className="mt-1 line-clamp-1 text-sm text-[#31095A]/50">
                       {book.author}
                     </p>
                   )}
