@@ -1,5 +1,7 @@
 "use client";
 
+// Vercel deployment sync: keep the restored manual add/search flow deployed.
+
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import BarcodeScanner from "../components/BarcodeScanner";
