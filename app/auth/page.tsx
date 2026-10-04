@@ -121,7 +121,7 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[#090B18] px-4 py-6 text-white sm:px-6 sm:py-8">
+    <main className="auth-screen min-h-[100dvh] bg-[#090B18] px-4 py-6 text-white sm:px-6 sm:py-8">
       <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-md flex-col justify-center">
         <div className="text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white ring-4 ring-white/10 shadow-[0_0_40px_rgba(254,207,76,0.12)]">
