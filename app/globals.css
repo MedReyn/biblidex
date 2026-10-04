@@ -147,6 +147,7 @@ textarea:focus-visible {
 }
 
 /* Dark product theme — all authenticated Biblidex screens share the auth visual language. */
+/* Preview sync: keep the latest theme fix deployed on feature/auth. */
 .biblidex-app:not(:has(.auth-screen)) {
   background: #090B18;
   color: #F8F7FC;
