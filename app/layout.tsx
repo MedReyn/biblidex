@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-[#FFF9F2] font-sans text-[#31095A]">
+      <body className="biblidex-app min-h-full bg-[#090B18] font-sans text-white">
         {children}
         <NavigationShell />
       </body>
