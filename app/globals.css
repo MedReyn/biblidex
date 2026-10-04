@@ -152,7 +152,7 @@ textarea:focus-visible {
   color: #F8F7FC;
 }
 
-.biblidex-app:not(:has(.auth-screen)) .bg-\[\#FFF9F2\] {
+.biblidex-app:not(:has(.auth-screen)) [class*="bg-[#FFF9F2]"] {
   background-color: #090B18 !important;
 }
 
