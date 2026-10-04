@@ -4,21 +4,13 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import BarcodeScanner from "../components/BarcodeScanner";
 import { createClient } from "../lib/supabase/client";
+import {
+  searchBooks as searchBooksApi,
+  BookResult,
+} from "../../lib/bookSearch";
+import { addBookToCollection } from "../../lib/addBook";
 
-type BookResult = {
-  title: string;
-  subtitle?: string;
-  author: string;
-  isbn: string;
-  coverUrl: string | null;
-  publisher: string;
-  publishedDate: string;
-  description?: string;
-  language?: string;
-  type: string;
-  volumeNumber: number | null;
-  series?: string;
-};
+
 
 export default function AddBookPage() {
   const supabase = createClient();
@@ -41,133 +33,43 @@ export default function AddBookPage() {
 
   // =========================================================
 async function searchBooks(queryValue: string) {
-  const value = queryValue.trim();
+    const value = queryValue.trim();
 
-  if (!value) return;
+    if (!value) return;
 
-  setLoading(true);
-  setError("");
-  setResults([]);
+    setLoading(true);
+    setError("");
+    setResults([]);
 
-  try {
-    const cleanValue = value.replace(/[- ]/g, "");
+    try {
+      const data = await searchBooksApi(value);
 
-    const isIsbn =
-      /^\d{10}$/.test(cleanValue) ||
-      /^\d{13}$/.test(cleanValue);
+      if (data.length > 0) {
+        setResults(data);
+        return;
+      }
 
-    // =========================================================
-    // 1. OPEN LIBRARY
-    // =========================================================
+      const cleanValue = value.replace(/[- ]/g, "");
 
-    const openLibraryQuery = isIsbn
-      ? `isbn:${cleanValue}`
-      : value;
+      const isIsbn =
+        /^\d{10}$/.test(cleanValue) ||
+        /^\d{13}$/.test(cleanValue);
 
-    const openLibraryResponse = await fetch(
-      `https://openlibrary.org/search.json?q=${encodeURIComponent(
-        openLibraryQuery
-      )}&fields=key,title,author_name,cover_i,first_publish_year,isbn,publisher,subject&limit=10`
-    );
+      setError(
+        isIsbn
+          ? `Aucun livre trouvé pour l'ISBN ${cleanValue}.`
+          : "Aucun livre trouvé."
+      );
+    } catch (error) {
+      console.error("Erreur recherche :", error);
+      setResults([]);
+      setError("Une erreur est survenue pendant la recherche.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    if (openLibraryResponse.ok) {
-      const openLibraryData =
-        await openLibraryResponse.json();
-
-      if (openLibraryData.docs?.length > 0) {
-        const results: BookResult[] =
-          openLibraryData.docs
-            .map((book: any) => {
-              // -------------------------------------------------
-              // ISBN
-              // -------------------------------------------------
-
-              const isbn =
-                book.isbn?.find(
-                  (value: string) =>
-                    /^\d{13}$/.test(
-                      value.replace(/[- ]/g, "")
-                    )
-                ) ||
-                book.isbn?.[0] ||
-                "";
-
-              // -------------------------------------------------
-              // TITRE
-              // -------------------------------------------------
-
-              const title =
-                book.title ||
-                "Titre inconnu";
-
-              // -------------------------------------------------
-              // DÉTECTION DU TOME
-              // -------------------------------------------------
-              //
-              // Exemples :
-              // "ONE PIECE 1"       → 1
-              // "ONE PIECE 14"      → 14
-              // "ONE PIECE Tome 1"  → 1
-              // "One Piece Vol. 12" → 12
-              // "Batman #5"         → 5
-              //
-
-              const volumeMatch = title.match(
-                /(?:tome|tom|volume|vol\.?|#)\s*(\d+)\s*$/i
-              );
-
-              let volumeNumber: number | null =
-                volumeMatch
-                  ? Number(volumeMatch[1])
-                  : null;
-
-              // -------------------------------------------------
-              // FALLBACK :
-              // numéro directement à la fin du titre
-              //
-              // "ONE PIECE 1"  → 1
-              // "ONE PIECE 14" → 14
-              // -------------------------------------------------
-
-              if (volumeNumber === null) {
-                const trailingNumberMatch =
-                  title.match(/\s(\d+)\s*$/);
-
-                if (trailingNumberMatch) {
-                  volumeNumber = Number(
-                    trailingNumberMatch[1]
-                  );
-                }
-              }
-
-              // -------------------------------------------------
-              // DÉTECTION DE LA SÉRIE
-              // -------------------------------------------------
-
-              let series = "";
-
-              // 1. On cherche d'abord une série dans les subjects
-              const seriesSubject =
-                book.subject?.find(
-                  (subject: string) => {
-                    const lower =
-                      subject.toLowerCase();
-
-                    return (
-                      lower.includes("(series)") ||
-                      lower.includes("series")
-                    );
-                  }
-                );
-
-             if (seriesSubject) {
-  series = seriesSubject
-    .replace(/^\s*series\s*:\s*/i, "")
-    .replace(/\s*\(series\)\s*/gi, "")
-    .replace(/\s*series\s*$/i, "")
-    .trim();
-}
-// =========================================================
+  // =========================================================
 // ISBN transmis depuis une autre page
 // =========================================================
 
@@ -564,227 +466,31 @@ useEffect(() => {
     setError("");
     setMessage("");
 
-    // ---------------------------------------------------------
-    // 1. Vérifier que l'utilisateur est connecté
-    // ---------------------------------------------------------
+    try {
+      const result = await addBookToCollection(book);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setError("Tu dois être connecté pour ajouter un livre.");
-      setAdding(null);
-      return;
-    }
-
-    // ---------------------------------------------------------
-    // 2. Chercher si l'œuvre existe déjà
-    // ---------------------------------------------------------
-
-    const {
-      data: existingWork,
-      error: workSearchError,
-    } = await supabase
-      .from("works")
-      .select("id")
-      .eq("title", book.title)
-      .eq("author", book.author)
-      .maybeSingle();
-
-    if (workSearchError) {
-      console.error(workSearchError);
-      setError("Impossible de vérifier l'œuvre.");
-      setAdding(null);
-      return;
-    }
-
-    let workId: string;
-
-    // ---------------------------------------------------------
-    // 3. Utiliser l'œuvre existante ou la créer
-    // ---------------------------------------------------------
-
-    if (existingWork) {
-      workId = existingWork.id;
-    } else {
-      const {
-        data: newWork,
-        error: workInsertError,
-      } = await supabase
-        .from("works")
-        .insert({
-          title: book.title,
-          author: book.author,
-          cover_url: book.coverUrl,
-          type: book.type,
-          volume_number: book.volumeNumber,
-        })
-        .select("id")
-        .single();
-
-      if (workInsertError || !newWork) {
-        console.error(workInsertError);
-        setError("Impossible de créer l'œuvre.");
-        setAdding(null);
-        return;
-      }
-
-      workId = newWork.id;
-    }
-
-    // ---------------------------------------------------------
-    // 4. Chercher l'édition par ISBN
-    // ---------------------------------------------------------
-
-    const {
-      data: existingEdition,
-      error: editionSearchError,
-    } = await supabase
-      .from("editions")
-      .select("id")
-      .eq("isbn", book.isbn)
-      .maybeSingle();
-
-    if (editionSearchError) {
-      console.error(editionSearchError);
-      setError("Impossible de vérifier l'édition.");
-      setAdding(null);
-      return;
-    }
-
-    // ---------------------------------------------------------
-    // 5. Créer l'édition si nécessaire
-    // ---------------------------------------------------------
-
-    if (!existingEdition) {
-      const { error: editionInsertError } = await supabase
-        .from("editions")
-        .insert({
-          work_id: workId,
-          isbn: book.isbn,
-          publisher: book.publisher,
-          published_date: book.publishedDate,
-          cover_url: book.coverUrl,
-        });
-
-      if (editionInsertError) {
-        console.error(editionInsertError);
-        setError("Impossible d'enregistrer l'édition.");
-        setAdding(null);
-        return;
-      }
-    }
-
-    // ---------------------------------------------------------
-    // 6. Chercher le livre dans l'ancienne table books
-    // ---------------------------------------------------------
-
-    let bookId: string;
-
-    const {
-      data: existingBook,
-      error: searchError,
-    } = await supabase
-      .from("books")
-      .select("id")
-      .eq("isbn", book.isbn)
-      .maybeSingle();
-
-    if (searchError) {
-      console.error(searchError);
-      setError("Impossible de vérifier le livre.");
-      setAdding(null);
-      return;
-    }
-
-    // ---------------------------------------------------------
-    // 7. Utiliser le livre existant ou le créer
-    // ---------------------------------------------------------
-
-    if (existingBook) {
-  bookId = existingBook.id;
-
-  // Compléter les informations de série si elles sont disponibles
-  if (book.series || book.volumeNumber !== null) {
-    const { error: updateError } = await supabase
-      .from("books")
-      .update({
-        series: book.series || null,
-        series_number: book.volumeNumber ?? null,
-      })
-      .eq("id", existingBook.id);
-
-    if (updateError) {
-      console.error(updateError);
-      setError(
-        "Le livre existe déjà, mais ses informations de série n'ont pas pu être mises à jour."
-      );
-      setAdding(null);
-      return;
-    }
-  }
-} else {
-
-
-      const {
-        data: newBook,
-        error: insertError,
-      } = await supabase
-        .from("books")
-       .insert({
-  title: book.title,
-  author: book.author,
-  isbn: book.isbn,
-  cover_url: book.coverUrl,
-  publisher: book.publisher,
-  published_date: book.publishedDate,
-  series: book.series || null,
-  series_number: book.volumeNumber ?? null,
-})
-        .select("id")
-        .single();
-
-      if (insertError || !newBook) {
-        console.error(insertError);
-        setError("Impossible d'enregistrer le livre.");
-        setAdding(null);
-        return;
-      }
-
-      bookId = newBook.id;
-    }
-
-    // ---------------------------------------------------------
-    // 8. Ajouter le livre à la collection de l'utilisateur
-    // ---------------------------------------------------------
-
-    const { error: userBookError } = await supabase
-      .from("user_books")
-      .insert({
-        user_id: user.id,
-        book_id: bookId,
-        status: "TO_READ",
-      });
-
-    if (userBookError) {
-      if (userBookError.code === "23505") {
-        setMessage("Ce livre est déjà dans ta collection.");
+      if (result.success) {
+        setMessage(
+          result.message ||
+            `« ${book.title} » a été ajouté à ta collection.`
+        );
+      } else if (result.alreadyExists) {
+        setMessage(
+          result.message ||
+            "Ce livre est déjà dans ta collection."
+        );
       } else {
-        console.error(userBookError);
-        setError("Impossible d'ajouter le livre à ta collection.");
+        setError(
+          result.message ||
+            "Impossible d'ajouter le livre à ta collection."
+        );
       }
-
+    } catch (error) {
+      console.error("Erreur ajout livre :", error);
+      setError("Une erreur est survenue pendant l'ajout du livre.");
+    } finally {
       setAdding(null);
-      return;
     }
-
-    // ---------------------------------------------------------
-    // 9. Succès
-    // ---------------------------------------------------------
-
-    setMessage(`« ${book.title} » a été ajouté à ta collection.`);
-    setAdding(null);
   }
 
   // =========================================================
