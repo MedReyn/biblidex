@@ -62,7 +62,13 @@ export default function AuthPage() {
     }
 
     if (mode === "signup") {
-      setMessage("Compte créé. Vérifie ton e-mail pour confirmer ton adresse.");
+      if (result.data.session) {
+        router.replace("/");
+        router.refresh();
+        return;
+      }
+
+      setMessage("Compte créé. Vérifie ton e-mail pour confirmer ton adresse. Tu seras redirigé vers ton accueil après confirmation.");
       setLoading(false);
       return;
     }
