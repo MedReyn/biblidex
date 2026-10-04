@@ -638,20 +638,20 @@ useEffect(() => {
   // =========================================================
 
   return (
-    <main className="min-h-screen bg-[#080B18] px-5 py-8 pb-24 text-white">
+    <main className="min-h-screen bg-[#FFF9F2] px-5 py-8 pb-24 text-[#31095A]">
       <div className="mx-auto max-w-4xl">
 
         {/* HEADER */}
 
         <Link
           href="/collection"
-          className="text-sm text-white/50 hover:text-white"
+          className="text-sm text-[#31095A]/50 hover:text-[#31095A]"
         >
           ← Ma collection
         </Link>
 
         <div className="mt-8">
-          <p className="text-sm font-semibold uppercase tracking-widest text-pink-400">
+          <p className="text-sm font-semibold uppercase tracking-widest text-[#F837E2]">
             Biblidex
           </p>
 
@@ -659,7 +659,7 @@ useEffect(() => {
             Ajouter un livre
           </h1>
 
-          <p className="mt-2 text-white/50">
+          <p className="mt-2 text-[#31095A]/50">
             Recherche par titre, auteur ou ISBN.
           </p>
         </div>
@@ -669,7 +669,7 @@ useEffect(() => {
         <button
           type="button"
           onClick={() => setScannerOpen(true)}
-          className="mt-6 w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-bold transition hover:bg-white/10"
+          className="mt-6 w-full rounded-2xl border border-[#31095A]/10 bg-white px-5 py-4 text-sm font-bold transition hover:bg-white"
         >
           Scanner le code-barres
         </button>
@@ -688,13 +688,13 @@ useEffect(() => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Dune, Frank Herbert, 9782070368228..."
-            className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-white outline-none placeholder:text-white/30 focus:border-pink-400"
+            className="flex-1 rounded-2xl border border-[#31095A]/10 bg-white px-5 py-4 text-[#31095A] outline-none placeholder:text-[#31095A]/30 focus:border-pink-400"
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="rounded-2xl bg-gradient-to-r from-orange-400 via-pink-500 to-violet-500 px-7 py-4 font-bold transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-2xl bg-[#FECF4C] text-[#31095A] px-7 py-4 font-bold transition hover:opacity-90 disabled:opacity-50"
           >
             {loading ? "Recherche..." : "Rechercher"}
           </button>
@@ -718,7 +718,7 @@ useEffect(() => {
 
         {results.length > 0 && (
           <div className="mt-8 space-y-4">
-            <p className="text-sm font-semibold text-white/50">
+            <p className="text-sm font-semibold text-[#31095A]/50">
               {results.length} résultat
               {results.length > 1 ? "s" : ""}
             </p>
@@ -726,7 +726,7 @@ useEffect(() => {
             {results.map((book) => (
               <article
                 key={`${book.isbn}-${book.title}-${book.publisher}-${book.publishedDate}`}
-                className="flex gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10"
+                className="flex gap-4 rounded-3xl border border-[#31095A]/10 bg-white p-4 transition hover:bg-white"
               >
                 {/* COVER */}
 
@@ -751,31 +751,31 @@ useEffect(() => {
                     {book.title}
                   </h2>
 {book.subtitle && (
-  <p className="text-sm text-white/50">
+  <p className="text-sm text-[#31095A]/50">
     {book.subtitle}
   </p>
 )}
 
 {book.series && (
-  <p className="text-xs text-white/40">
+  <p className="text-xs text-[#31095A]/40">
     {book.series}
     {book.volumeNumber
       ? ` · Tome ${book.volumeNumber}`
       : ""}
   </p>
 )}
-                  <p className="mt-1 text-sm text-white/60">
+                  <p className="mt-1 text-sm text-[#31095A]/60">
                     {book.author}
                   </p>
 
                   {book.publishedDate && (
-                    <p className="mt-2 text-xs text-white/40">
+                    <p className="mt-2 text-xs text-[#31095A]/40">
                       {book.publishedDate}
                     </p>
                   )}
 
                   {book.isbn && (
-                    <p className="mt-1 text-xs text-white/30">
+                    <p className="mt-1 text-xs text-[#31095A]/30">
                       ISBN {book.isbn}
                     </p>
                   )}
@@ -799,14 +799,14 @@ useEffect(() => {
         {/* EMPTY STATE */}
 
         {!loading && results.length === 0 && !message && !error && (
-          <div className="mt-12 rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
+          <div className="mt-12 rounded-3xl border border-[#31095A]/10 bg-white p-10 text-center">
             <div className="text-5xl">🔎</div>
 
             <h2 className="mt-4 text-xl font-bold">
               Quel livre cherches-tu ?
             </h2>
 
-            <p className="mt-2 text-sm text-white/40">
+            <p className="mt-2 text-sm text-[#31095A]/40">
               Essaie un titre, un auteur ou un ISBN.
             </p>
           </div>
