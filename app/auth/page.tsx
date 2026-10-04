@@ -1,17 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "../lib/supabase/client";
 
 type Mode = "login" | "signup";
 
 export default function AuthPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
-  const [mode, setMode] = useState<Mode>(searchParams.get("mode") === "signup" ? "signup" : "login");
+  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -21,10 +21,11 @@ export default function AuthPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const requestedMode = searchParams.get("mode");
+    const params = new URLSearchParams(window.location.search);
+    const requestedMode = params.get("mode");
     if (requestedMode === "signup" || requestedMode === "login") setMode(requestedMode);
-    if (searchParams.get("error") === "auth_callback") setError("La connexion n’a pas pu être finalisée. Réessaie.");
-  }, [searchParams]);
+    if (params.get("error") === "auth_callback") setError("La connexion n’a pas pu être finalisée. Réessaie.");
+  }, []);
 
   function switchMode(nextMode: Mode) {
     setMode(nextMode);
@@ -150,7 +151,7 @@ export default function AuthPage() {
   );
 }
 
-function SocialButton({ label, onClick, loading, icon }: { label: string; onClick: () => void; loading: boolean; icon: React.ReactNode }) {
+function SocialButton({ label, onClick, loading, icon }: { label: string; onClick: () => void; loading: boolean; icon: ReactNode }) {
   return <button type="button" onClick={onClick} disabled={loading} className="flex min-h-12 items-center justify-center gap-3 rounded-[14px] border border-[#31095A]/12 bg-white px-4 text-sm font-extrabold text-[#31095A] shadow-sm transition hover:bg-[#FFF9F2] active:scale-[0.99] disabled:opacity-60">{icon}{loading ? "Redirection..." : label}</button>;
 }
 
