@@ -100,7 +100,7 @@ export default function AuthPage() {
     setLoading(false);
   }
 
-  async function handleSocial(provider: "google" | "apple") {
+  async function handleSocial(provider: "google") {
     setSocialLoading(provider);
     setError("");
 
@@ -146,7 +146,6 @@ export default function AuthPage() {
 
           <div className="mt-3 grid gap-2.5">
             <SocialButton label={mode === "login" ? "Continuer avec Google" : "S’inscrire avec Google"} onClick={() => handleSocial("google")} loading={socialLoading === "google"} icon={<GoogleIcon />} />
-            <SocialButton label={mode === "login" ? "Continuer avec Apple" : "S’inscrire avec Apple"} onClick={() => handleSocial("apple")} loading={socialLoading === "apple"} icon={<AppleIcon />} />
           </div>
 
           <div className="my-4 flex items-center gap-3 text-[10px] font-bold tracking-[0.08em] text-white/25">
@@ -216,10 +215,3 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-white">
-      <path d="M16.7 12.65c0-2.37 1.94-3.52 2.03-3.58a4.35 4.35 0 0 0-3.43-1.85c-1.45-.15-2.84.86-3.58.86-.75 0-1.9-.84-3.13-.81a4.62 4.62 0 0 0-3.88 2.37c-1.68 2.91-.43 7.2 1.18 9.56.79 1.16 1.72 2.46 2.95 2.41 1.18-.05 1.63-.77 3.06-.77 1.43 0 1.84.77 3.07.74 1.28-.02 2.08-1.16 2.84-2.32a9.5 9.5 0 0 0 1.29-2.68 4.15 4.15 0 0 1-2.4-3.93ZM14.35 5.68a4.1 4.1 0 0 0 .94-2.98 4.2 4.2 0 0 0-2.71 1.4 3.9 3.9 0 0 0-.97 2.87 3.47 3.47 0 0 0 2.74-1.29Z" />
-    </svg>
-  );
-}
