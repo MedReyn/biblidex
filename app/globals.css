@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFF9F2;
-  --foreground: #31095A;
+  --background: #0B0712;
+  --foreground: #FFFFFF;
 
   --biblidex-purple: #31095A;
   --biblidex-yellow: #FECF4C;
@@ -10,7 +10,10 @@
   --biblidex-orange: #FFAA5F;
   --biblidex-violet: #5A0FA8;
   --biblidex-dark: #090B18;
-  --biblidex-light: #FFF9F2;
+  --biblidex-light: #15101D;
+  --biblidex-surface: #17121F;
+  --biblidex-surface-2: #211A2B;
+  --biblidex-border: rgba(255,255,255,0.10);
 
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -144,4 +147,71 @@ textarea:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+
+/* Biblidex dark theme — UI only, business logic untouched */
+body {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+/* Common Tailwind surfaces */
+[class~="bg-white"],
+[class*="bg-white/"] {
+  background-color: var(--biblidex-surface) !important;
+}
+
+[class~="bg-[#FFF9F2]"] {
+  background-color: var(--background) !important;
+}
+
+/* Biblidex purple becomes a softer dark-purple surface where used as a container. */
+[class~="bg-[#31095A]"] {
+  background-color: #21132F !important;
+}
+
+/* Preserve brand yellow/pink accents. */
+[class~="bg-[#FECF4C]"],
+[class~="bg-[#FECF4C]/90"] {
+  background-color: var(--biblidex-yellow) !important;
+}
+
+/* Dark-mode typography for the former purple text tokens. */
+[class~="text-[#31095A]"],
+[class*="text-[#31095A]/"] {
+  color: #F8F4FC !important;
+}
+
+/* Muted text stays readable on dark surfaces. */
+[class*="text-[#31095A]/50"],
+[class*="text-[#31095A]/55"],
+[class*="text-[#31095A]/45"],
+[class*="text-[#31095A]/40"] {
+  color: rgba(248,244,252,0.58) !important;
+}
+
+/* Borders/shadows designed for light mode need a dark equivalent. */
+[class*="border-[#31095A]/"] {
+  border-color: var(--biblidex-border) !important;
+}
+
+[class~="shadow-sm"] {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22) !important;
+}
+
+/* Form controls */
+input, select, textarea {
+  background-color: var(--biblidex-surface) !important;
+  color: #F8F4FC !important;
+  border-color: var(--biblidex-border) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgba(248,244,252,0.42) !important;
+}
+
+/* Keep native page chrome dark on mobile browsers. */
+html {
+  color-scheme: dark;
 }
