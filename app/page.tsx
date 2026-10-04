@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "./lib/supabase/client";
+import {
+  searchBooks,
+  BookResult,
+} from "../lib/bookSearch";
+import { addBookToCollection } from "../lib/addBook";
 
 type Book = {
   id: string;
@@ -23,8 +28,15 @@ type UserBook = {
 export default function Home() {
   const supabase = createClient();
 
-  const [books, setBooks] = useState<UserBook[]>([]);
-  const [loading, setLoading] = useState(true);
+const [books, setBooks] = useState<UserBook[]>([]);
+const [loading, setLoading] = useState(true);
+
+const [searchQuery, setSearchQuery] = useState("");
+const [searchResults, setSearchResults] = useState<BookResult[]>([]);
+const [searchLoading, setSearchLoading] = useState(false);
+const [searchError, setSearchError] = useState("");
+const [addingBook, setAddingBook] = useState<string | null>(null);
+const [addedBooks, setAddedBooks] = useState<string[]>([]);
 
   useEffect(() => {
     async function loadHome() {
@@ -82,7 +94,69 @@ export default function Home() {
 
     loadHome();
   }, []);
+async function handleSearch(event: FormEvent) {
+  event.preventDefault();
 
+  const value = searchQuery.trim();
+
+  if (!value) {
+    setSearchResults([]);
+    setSearchError("");
+    return;
+  }
+
+  setSearchLoading(true);
+  setSearchError("");
+  setSearchResults([]);
+
+  try {
+    const results = await searchBooks(value);
+
+    if (results.length === 0) {
+      setSearchError("Aucun livre trouvé.");
+    } else {
+      setSearchResults(results);
+    }
+  } catch (error) {
+    console.error("Erreur recherche accueil :", error);
+    setSearchError(
+      "Une erreur est survenue pendant la recherche."
+    );
+  } finally {
+    setSearchLoading(false);
+  }
+}
+async function handleAddBook(book: BookResult) {
+  setAddingBook(book.isbn);
+  setSearchError("");
+
+  try {
+    const result = await addBookToCollection(book);
+
+    if (result.success || result.alreadyExists) {
+      setAddedBooks((current) =>
+        current.includes(book.isbn)
+          ? current
+          : [...current, book.isbn]
+      );
+
+      return;
+    }
+
+    setSearchError(
+      result.message ||
+        "Impossible d'ajouter le livre à ta collection."
+    );
+  } catch (error) {
+    console.error("Erreur ajout depuis l'accueil :", error);
+
+    setSearchError(
+      "Une erreur est survenue pendant l'ajout du livre."
+    );
+  } finally {
+    setAddingBook(null);
+  }
+}
   const totalBooks = books.length;
 
   const readBooks = books.filter(
@@ -97,9 +171,14 @@ export default function Home() {
     (book) => book.status === "READING"
   );
 
-  const recentBooks = books.slice(0, 6);
+ const recentBooks = books.slice(0, 6);
 
-  return (
+const isBookInCollection = (book: BookResult) =>
+  books.some(
+    (userBook) => userBook.books?.isbn === book.isbn
+  ) || addedBooks.includes(book.isbn);
+
+return (
     <main className="min-h-screen bg-[#090B18] text-white">
       <div className="mx-auto flex min-h-screen max-w-md flex-col">
 
@@ -121,20 +200,107 @@ export default function Home() {
         </header>
 
         {/* RECHERCHE */}
-        <section className="px-5 pt-3">
-          <Link
-            href="/search"
-            className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 transition hover:bg-white/15"
-          >
-            <span className="text-lg text-white/50">
-              ⌕
-            </span>
+<section className="px-5 pt-3">
+  <form
+    onSubmit={handleSearch}
+    className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 transition focus-within:bg-white/15"
+  >
+    <span className="text-lg text-white/50">
+      🔍
+    </span>
 
-            <span className="text-sm text-white/40">
-              Rechercher un livre...
-            </span>
-          </Link>
-        </section>
+    <input
+      type="text"
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      placeholder="Rechercher un livre..."
+      className="min-w-0 flex-1 bg-transparent py-2 text-sm text-white outline-none placeholder:text-white/40"
+    />
+
+    <button
+      type="submit"
+      disabled={searchLoading}
+      className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#151629] transition hover:bg-white/90 disabled:opacity-50"
+    >
+      {searchLoading ? "..." : "Rechercher"}
+    </button>
+  </form>
+
+  {searchError && (
+    <p className="mt-3 rounded-xl bg-red-400/10 px-4 py-3 text-xs text-red-300">
+      {searchError}
+    </p>
+  )}
+</section>
+{searchResults.length > 0 && (
+  <section className="px-5 pt-4">
+    <div className="space-y-3">
+      {searchResults.map((book) => {
+        const alreadyInCollection = isBookInCollection(book);
+
+        return (
+          <article
+            key={`${book.isbn}-${book.title}-${book.publisher}`}
+            className="flex gap-3 rounded-2xl bg-white/[0.06] p-3"
+          >
+            <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-white/10">
+              {book.coverUrl ? (
+                <img
+                  src={book.coverUrl}
+                  alt={book.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center p-2 text-center text-xs">
+                  📚
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-bold">
+                {book.title}
+              </h2>
+
+              <p className="mt-1 truncate text-xs text-white/50">
+                {book.author}
+              </p>
+
+              {alreadyInCollection && (
+                <span className="mt-2 inline-flex rounded-full bg-yellow-300/15 px-2 py-1 text-[9px] font-bold text-yellow-300">
+                  ✓ DÉJÀ AJOUTÉ
+                </span>
+              )}
+
+              {book.series && (
+                <p className="mt-1 text-[10px] text-white/40">
+                  {book.series}
+                  {book.volumeNumber
+                    ? ` · Tome ${book.volumeNumber}`
+                    : ""}
+                </p>
+              )}
+
+             {!alreadyInCollection && (
+  <button
+    type="button"
+    onClick={() => handleAddBook(book)}
+    disabled={addingBook === book.isbn}
+    className="mt-3 rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-[#080B18] transition hover:bg-white/90 disabled:opacity-60"
+  >
+    {addingBook === book.isbn
+      ? "Ajout..."
+      : "＋ Ajouter à ma collection"}
+  </button>
+)}
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  </section>
+)}
+
 
         {/* HERO */}
         <section className="px-5 pt-7">
@@ -226,11 +392,11 @@ export default function Home() {
                         {book.title || "Livre sans titre"}
                       </p>
 
-                      {book.author && (
-                        <p className="mt-1 truncate text-xs text-white/50">
-                          {book.author}
-                        </p>
-                      )}
+{book.author && (
+  <p className="mt-1 truncate text-xs text-white/50">
+    {book.author}
+  </p>
+)}
 
                       <p className="mt-3 text-[10px] font-semibold text-yellow-300">
                         EN COURS
