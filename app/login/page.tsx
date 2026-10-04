@@ -36,11 +36,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#080B18] px-6 py-10 text-white">
+    <main className="min-h-screen bg-[#FFF9F2] px-6 py-10 text-[#31095A]">
       <div className="mx-auto max-w-md">
         <Link
           href="/"
-          className="text-sm text-white/60 hover:text-white"
+          className="text-sm text-[#31095A]/60 hover:text-[#31095A]"
         >
           ← Retour à Biblidex
         </Link>
@@ -50,7 +50,7 @@ export default function LoginPage() {
             Connexion
           </h1>
 
-          <p className="mt-2 text-white/60">
+          <p className="mt-2 text-[#31095A]/60">
             Connecte-toi pour gérer ta collection.
           </p>
         </div>
@@ -70,7 +70,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="toi@email.com"
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-pink-400"
+              className="w-full rounded-2xl border border-[#31095A]/10 bg-white px-4 py-3 outline-none focus:border-pink-400"
             />
           </div>
 
@@ -85,7 +85,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-pink-400"
+              className="w-full rounded-2xl border border-[#31095A]/10 bg-white px-4 py-3 outline-none focus:border-pink-400"
             />
           </div>
 
@@ -98,17 +98,17 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-2xl bg-gradient-to-r from-orange-400 via-pink-500 to-violet-500 px-5 py-4 font-bold transition hover:opacity-90 disabled:opacity-50"
+            className="w-full rounded-2xl bg-[#FECF4C] text-[#31095A] px-5 py-4 font-bold transition hover:opacity-90 disabled:opacity-50"
           >
             {loading ? "Connexion..." : "Se connecter"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-white/50">
+        <p className="mt-6 text-center text-sm text-[#31095A]/50">
           Pas encore de compte ?{" "}
           <Link
             href="/signup"
-            className="font-semibold text-pink-400 hover:text-pink-300"
+            className="font-semibold text-[#F837E2] hover:text-[#F837E2]"
           >
             Créer un compte
           </Link>
