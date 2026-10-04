@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import BarcodeScanner from "../components/BarcodeScanner";
 import { createClient } from "../lib/supabase/client";
@@ -121,13 +121,13 @@ useEffect(() => {
   }
 }, []);
 
-  function handleBarcodeDetected(isbn: string) {
+  const handleBarcodeDetected = useCallback((isbn: string) => {
     setScannerOpen(false);
     setQuery(isbn);
 
     // Lance automatiquement la recherche
     searchBooks(isbn);
-  }
+  }, []);
 
   // =========================================================
   // AJOUTER UN LIVRE
