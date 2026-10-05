@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 
 type Book = {
@@ -42,6 +42,7 @@ const statuses = [
 export default function BookPage() {
   const params = useParams();
   const bookId = params.id as string;
+  const searchParams = useSearchParams();
 
   const supabase = createClient();
 
@@ -53,6 +54,7 @@ export default function BookPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [review, setReview] = useState("");
+  const [reviewFeedback, setReviewFeedback] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -67,32 +69,86 @@ export default function BookPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      setError("Tu dois être connecté.");
-      setLoading(false);
-      return;
-    }
+    const previewIsbn = bookId.replace(/^(?:ol|bnf)-/i, "");
 
     /* =========================
        LIVRE
+       - DB book for collection/details
+       - ISBN preview for search results
     ========================= */
 
-    const { data: bookData, error: bookError } = await supabase
-      .from("books")
-      .select(`
-        id,
-        title,
-        author,
-        isbn,
-        cover_url,
-        publisher,
-        published_date
-      `)
-      .eq("id", bookId)
-      .single();
+    let bookData: Book | null = null;
 
-    if (bookError) {
-      console.error(bookError);
+    if (/^\d{10,13}$/.test(previewIsbn)) {
+      const response = await fetch(
+        "https://openlibrary.org/search.json?isbn=" +
+          encodeURIComponent(previewIsbn) +
+          "&fields=title,author_name,cover_i,publisher,first_publish_year,isbn&limit=1"
+      );
+
+      if (response.ok) {
+        const payload = await response.json();
+        const result = payload?.docs?.[0];
+
+        if (result) {
+          const resultIsbn =
+            result.isbn?.find((value: string) => /^\d{13}$/.test(value)) ||
+            result.isbn?.find((value: string) => /^\d{10}$/.test(value)) ||
+            previewIsbn;
+
+          bookData = {
+            id: previewIsbn,
+            title: result.title || searchParams.get("title") || "Titre inconnu",
+            author: result.author_name?.join(", ") || searchParams.get("author"),
+            isbn: resultIsbn,
+            cover_url: result.cover_i
+              ? "https://covers.openlibrary.org/b/id/" + result.cover_i + "-L.jpg"
+              : searchParams.get("cover"),
+            publisher: result.publisher?.[0] || searchParams.get("publisher"),
+            published_date: result.first_publish_year
+              ? String(result.first_publish_year)
+              : searchParams.get("publishedDate"),
+          };
+        }
+      }
+
+      if (!bookData) {
+        bookData = {
+          id: previewIsbn,
+          title: searchParams.get("title") || "Titre inconnu",
+          author: searchParams.get("author"),
+          isbn: previewIsbn,
+          cover_url: searchParams.get("cover"),
+          publisher: searchParams.get("publisher"),
+          published_date: searchParams.get("publishedDate"),
+        };
+      }
+    } else {
+      const { data, error: bookError } = await supabase
+        .from("books")
+        .select(`
+          id,
+          title,
+          author,
+          isbn,
+          cover_url,
+          publisher,
+          published_date
+        `)
+        .eq("id", bookId)
+        .single();
+
+      if (bookError) {
+        console.error(bookError);
+        setError("Livre introuvable.");
+        setLoading(false);
+        return;
+      }
+
+      bookData = data;
+    }
+
+    if (!bookData) {
       setError("Livre introuvable.");
       setLoading(false);
       return;
@@ -130,19 +186,24 @@ export default function BookPage() {
        LIVRE DE L'UTILISATEUR
     ========================= */
 
-    const { data: userBookData, error: userBookError } =
-      await supabase
+    let userBookData: UserBook | null = null;
+
+    if (user) {
+      const { data, error: userBookError } = await supabase
         .from("user_books")
         .select("id, status, rating, notes")
-        .eq("book_id", bookId)
+        .eq("book_id", bookData.id)
         .eq("user_id", user.id)
         .maybeSingle();
 
-    if (userBookError) {
-      console.error("Erreur user_book :", userBookError);
-      setError("Impossible de récupérer ton exemplaire.");
-      setLoading(false);
-      return;
+      if (userBookError) {
+        console.error("Erreur user_book :", userBookError);
+        setError("Impossible de récupérer ton exemplaire.");
+        setLoading(false);
+        return;
+      }
+
+      userBookData = data;
     }
 
     setBook(bookData);
@@ -222,6 +283,7 @@ export default function BookPage() {
     setSaving(true);
     setError("");
 
+    const previousNotes = userBook.notes;
     const notes = review.trim() || null;
 
     const { error } = await supabase
@@ -238,6 +300,16 @@ export default function BookPage() {
         ...userBook,
         notes,
       });
+
+      setReviewFeedback(
+        notes === null
+          ? "Commentaire supprimé"
+          : previousNotes
+            ? "Commentaire modifié"
+            : "Commentaire ajouté"
+      );
+
+      window.setTimeout(() => setReviewFeedback(""), 2500);
     }
 
     setSaving(false);
@@ -336,7 +408,7 @@ export default function BookPage() {
           href="/collection"
           className="text-sm text-[#31095A]/50 transition hover:text-[#31095A]"
         >
-          ← Ma collection
+          ← {userBook ? "Ma collection" : "Retour"}
         </Link>
 
         {/* =========================
@@ -368,7 +440,7 @@ export default function BookPage() {
           <div>
 
             <p className="text-sm font-semibold uppercase tracking-widest text-[#F837E2]">
-              Mon livre
+              {userBook ? "Mon livre" : "Fiche livre"}
             </p>
 
             <h1 className="mt-3 text-4xl font-black leading-tight">
@@ -480,6 +552,16 @@ export default function BookPage() {
                 >
                   {saving ? "Enregistrement…" : "Enregistrer mon avis"}
                 </button>
+
+                {reviewFeedback && (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className="mt-2 text-center text-xs font-bold text-[#5A0FA8]"
+                  >
+                    ✓ {reviewFeedback}
+                  </p>
+                )}
               </div>
             )}
 
@@ -499,6 +581,21 @@ export default function BookPage() {
         {/* =========================
             ÉDITION
         ========================= */}
+
+        {!userBook && (
+          <section className="mt-8 rounded-2xl border border-[#31095A]/10 bg-white p-4">
+            <p className="text-sm font-black">Ce livre t'intéresse ?</p>
+            <p className="mt-1 text-xs text-[#31095A]/50">
+              Ajoute-le à ta collection pour le noter, le commenter et suivre sa lecture.
+            </p>
+            <Link
+              href={"/add?isbn=" + encodeURIComponent(book.isbn || "")}
+              className="mt-3 block w-full rounded-2xl bg-[#FECF4C] px-5 py-3 text-center text-sm font-black text-[#31095A] transition hover:opacity-90"
+            >
+              + Ajouter à ma collection
+            </Link>
+          </section>
+        )}
 
         <section className="mt-12">
           <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#F837E2]">
@@ -547,7 +644,8 @@ export default function BookPage() {
             ACTIONS
         ========================= */}
 
-        <section className="mt-12 border-t border-[#31095A]/10 pt-8">
+        {userBook && (
+          <section className="mt-12 border-t border-[#31095A]/10 pt-8">
 
           <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#31095A]/30">
             Actions
@@ -564,7 +662,8 @@ export default function BookPage() {
               : "Retirer de ma collection"}
           </button>
 
-        </section>
+          </section>
+        )}
 
       </div>
     </main>
