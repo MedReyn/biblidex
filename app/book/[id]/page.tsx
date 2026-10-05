@@ -29,6 +29,7 @@ type UserBook = {
   id: string;
   status: string;
   rating: number | null;
+  notes: string | null;
 };
 
 const statuses = [
@@ -51,6 +52,7 @@ export default function BookPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [review, setReview] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function BookPage() {
     const { data: userBookData, error: userBookError } =
       await supabase
         .from("user_books")
-        .select("id, status, rating")
+        .select("id, status, rating, notes")
         .eq("book_id", bookId)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -146,6 +148,7 @@ export default function BookPage() {
     setBook(bookData);
     setEdition(editionData);
     setUserBook(userBookData);
+    setReview(userBookData?.notes ?? "");
 
     setLoading(false);
   }
@@ -203,6 +206,37 @@ export default function BookPage() {
       setUserBook({
         ...userBook,
         rating: newRating,
+      });
+    }
+
+    setSaving(false);
+  }
+
+  /* =========================
+     AVIS
+  ========================= */
+
+  async function updateReview() {
+    if (!userBook) return;
+
+    setSaving(true);
+    setError("");
+
+    const notes = review.trim() || null;
+
+    const { error } = await supabase
+      .from("user_books")
+      .update({ notes })
+      .eq("id", userBook.id);
+
+    if (error) {
+      console.error(error);
+      setError("Impossible d'enregistrer ton avis.");
+    } else {
+      setReview(notes ?? "");
+      setUserBook({
+        ...userBook,
+        notes,
       });
     }
 
@@ -414,6 +448,38 @@ export default function BookPage() {
                     {userBook.rating}/5
                   </p>
                 )}
+              </div>
+            )}
+
+            {userBook && (
+              <div className="mt-8">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[#31095A]/60">
+                    Mon avis
+                  </p>
+                  <span className="text-xs text-[#31095A]/35">
+                    {review.length}/1000
+                  </span>
+                </div>
+
+                <textarea
+                  value={review}
+                  maxLength={1000}
+                  disabled={saving || deleting}
+                  onChange={(event) => setReview(event.target.value)}
+                  placeholder="Qu’as-tu pensé de ce livre ?"
+                  rows={5}
+                  className="w-full resize-none rounded-2xl border border-[#31095A]/10 bg-white px-4 py-3 text-sm leading-6 text-[#31095A] outline-none transition placeholder:text-[#31095A]/30 focus:border-[#F837E2]"
+                />
+
+                <button
+                  type="button"
+                  disabled={saving || deleting || review === (userBook.notes ?? "")}
+                  onClick={updateReview}
+                  className="mt-3 w-full rounded-2xl bg-[#FECF4C] px-5 py-3 text-sm font-black text-[#31095A] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {saving ? "Enregistrement…" : "Enregistrer mon avis"}
+                </button>
               </div>
             )}
 
