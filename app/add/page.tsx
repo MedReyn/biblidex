@@ -767,18 +767,22 @@ export default function AddBookPage() {
                         {book.isbn && <span>· ISBN {book.isbn}</span>}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => addBook(book)}
-                        disabled={inCollection || adding === book.id}
-                        className={`mt-3 min-h-10 rounded-[12px] px-4 text-xs font-black transition ${
-                          inCollection
-                            ? "bg-white/5 text-white/35"
-                            : "bg-[#FECF4C] text-[#31095A] hover:opacity-90"
-                        }`}
-                      >
-                        {inCollection ? "✓ Déjà dans ta collection" : adding === book.id ? "Ajout…" : "+ Ajouter"}
-                      </button>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link
+                          href={"/book/" + book.id + "?title=" + encodeURIComponent(book.title) + "&author=" + encodeURIComponent(book.author) + "&cover=" + encodeURIComponent(book.coverUrl || "") + "&publisher=" + encodeURIComponent(book.publisher || "") + "&publishedDate=" + encodeURIComponent(book.publishedDate || "")}
+                          className="min-h-10 rounded-[12px] border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-black text-white/75 transition hover:bg-white/[0.08]"
+                        >
+                          Voir la fiche
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => addBook(book)}
+                          disabled={inCollection || adding === book.id}
+                          className="min-h-10 rounded-[12px] bg-[#FECF4C] px-4 py-2 text-xs font-black text-[#31095A] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {inCollection ? "✓ Déjà dans ta collection" : adding === book.id ? "Ajout…" : "+ Ajouter"}
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
